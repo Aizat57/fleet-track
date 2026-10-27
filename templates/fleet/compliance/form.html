@@ -1,0 +1,63 @@
+{% extends 'fleet/layout.html' %}
+{% block title %}{% if record %}Edit{% else %}Renew{% endif %} {{ kind_label }} · {{ vehicle }}{% endblock %}
+{% block page_title %}{{ kind_label }} · {{ vehicle.registration_no }}{% endblock %}
+{% block crumbs %}<li><a href="{% url 'fleet:compliance' %}">Insurance &amp; Road Tax</a></li><li><a href="{{ vehicle.get_absolute_url }}?tab={{ kind }}">{{ vehicle.registration_no }}</a></li><li aria-current="page">{% if record %}Edit{% else %}Renew{% endif %}</li>{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <p class="eyebrow">{% if kind == 'insurance' %}{% icon 'shield' 14 %}{% else %}{% icon 'receipt' 14 %}{% endif %} {{ kind_label }}</p>
+    <h1>{% if record %}Edit {{ kind_label|lower }} record{% elif current %}Record {{ kind_label|lower }} renewal{% else %}Add {{ kind_label|lower }}{% endif %}</h1>
+    <p class="lede">{% include 'ui/vehicle_cell.html' with v=vehicle sub=vehicle.make_model %}</p>
+  </div>
+</div>
+<div class="grid g-side">
+  <form method="post" enctype="multipart/form-data" class="form-card" novalidate>
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ next }}">
+    {% if form.non_field_errors %}<div class="form-errors" style="margin:var(--pad) var(--pad) 0">{% icon 'alert-circle' 16 %}{{ form.non_field_errors|join:' ' }}</div>{% endif %}
+    <section class="form-section">
+      <div class="form-section-head"><h2>{{ kind_label }} details</h2><p>Dates are pre-filled from the previous period where possible — check them against the new document.</p></div>
+      <div class="fields">
+        {% field form.provider %}{% field form.reference_no %}
+        {% if form.coverage %}{% field form.coverage %}{% field form.sum_insured %}{% endif %}
+        {% field form.start_date %}{% field form.expiry_date %}
+      </div>
+    </section>
+    <section class="form-section">
+      <div class="form-section-head"><h2>Cost</h2><p>Leave blank if the cost is not known — it will show as “not recorded”, never as RM 0.00.</p></div>
+      <div class="fields">
+        {% field form.cost %}
+        {% if form.payment_status %}{% field form.payment_status %}{% endif %}
+        {% if form.record_expense %}{% field form.record_expense True %}{% endif %}
+      </div>
+    </section>
+    <section class="form-section">
+      <div class="form-section-head"><h2>Workflow &amp; document</h2></div>
+      <div class="fields">
+        {% field form.responsible %}{% field form.workflow %}
+        {% field form.document %}
+      </div>
+    </section>
+    <div class="form-actions">
+      <a class="btn btn-secondary" href="{{ next|default:vehicle.get_absolute_url }}">Cancel</a>
+      <button class="btn btn-primary" type="submit">{% icon 'check' 16 %} Save</button>
+    </div>
+  </form>
+  <aside class="card">
+    <h3>Current record</h3>
+    {% if current and not record %}
+    <dl class="dl one" style="margin-top:10px">
+      <div><dt>Provider</dt><dd>{{ current.provider|default:'—' }}</dd></div>
+      <div><dt>Expiry</dt><dd>{{ current.expiry_date|date:'d M Y' }}</dd></div>
+      <div><dt>Status</dt><dd>{% expiry_badge current.expiry_date %}</dd></div>
+      <div><dt>Last cost</dt><dd class="num r">{{ current.cost|rm:'<span class="not-recorded">Not recorded</span>' }}</dd></div>
+    </dl>
+    <p class="small muted" style="margin-top:12px">Saving creates a new period. The previous record is kept in the vehicle's history.</p>
+    {% elif record %}
+    <p class="small muted" style="margin-top:8px">You are correcting an existing record. To record a new period, use “Record renewal” instead.</p>
+    {% else %}
+    <p class="small muted" style="margin-top:8px">No {{ kind_label|lower }} has been recorded for this vehicle yet.</p>
+    {% endif %}
+  </aside>
+</div>
+{% endblock %}

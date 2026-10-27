@@ -1,0 +1,32 @@
+<dialog class="modal" id="upload-dialog" aria-labelledby="upload-title">
+  <form method="post" enctype="multipart/form-data" action="{% url 'fleet:document_upload' %}" data-ajax-upload novalidate>
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ next_url|default:request.get_full_path }}">
+    <div class="modal-head">
+      <div><h2 id="upload-title">Upload document</h2><p>PDF, images, Word or Excel up to {{ max_mb|default:20 }} MB.</p></div>
+      <button class="icon-btn" type="button" data-close aria-label="Close">{% icon 'x' 18 %}</button>
+    </div>
+    <div class="modal-body">
+      <div class="dropzone" data-max-mb="{{ max_mb|default:20 }}">
+        <span class="dz-ico">{% icon 'upload' 22 %}</span>
+        <p><strong>Click to choose</strong> or drag a file here</p>
+        <p class="small muted" style="margin-top:4px">Stored privately; only authorised users can open it.</p>
+        <input type="file" name="file" id="upload-file" accept="{{ accept|default:'.pdf,.jpg,.jpeg,.png,.webp,.heic,.doc,.docx,.xls,.xlsx' }}" required aria-label="Choose file">
+      </div>
+      <div class="dz-list"></div>
+      <div class="upload-progress" hidden><i></i></div>
+      <div class="fields" style="margin-top:18px">
+        {% field form.name True %}
+        {% field form.category %}
+        {% field form.vehicle %}
+        {% field form.driver %}
+        {% field form.issue_date %}
+        {% field form.expiry_date %}
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-secondary" type="button" data-close>Cancel</button>
+      <button class="btn btn-primary" type="submit">{% icon 'upload' 16 %} Upload</button>
+    </div>
+  </form>
+</dialog>

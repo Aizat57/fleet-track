@@ -1,0 +1,136 @@
+{% extends 'fleet/layout.html' %}
+{% block title %}Add Vehicle{% endblock %}
+{% block page_title %}Add Vehicle{% endblock %}
+{% block crumbs %}<li><a href="{% url 'fleet:vehicle_list' %}">Vehicles</a></li><li aria-current="page">Add Vehicle</li>{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <p class="eyebrow">{% icon 'plus' 14 %} New vehicle{% if draft %} · resuming draft “{{ draft.label }}”{% endif %}</p>
+    <h1>Add a vehicle to your fleet</h1>
+    <p class="lede">Six short steps. Only the basics are required; you can save a draft at any point.</p>
+  </div>
+</div>
+
+<form method="post" enctype="multipart/form-data" data-wizard data-vehicle-form data-start="{{ start_step }}" class="wizard">
+  {% csrf_token %}
+  <input type="hidden" name="step" value="{{ start_step }}">
+  {% if draft %}<input type="hidden" name="draft_id" value="{{ draft.pk }}">{% endif %}
+
+  <nav class="card steps" aria-label="Form steps">
+    <div class="progress-line" aria-hidden="true"><i style="width:0"></i></div>
+    <ol>
+      {% for key, title, desc in steps %}
+      <li><button type="button" class="step-btn{% if step_errors|get_item:key %} has-error{% endif %}" data-step-btn>
+        <span class="n">{{ forloop.counter }}</span>
+        <span><span class="t" style="display:block">{{ title }}</span><span class="s">{{ desc|truncatewords:5 }}</span></span>
+      </button></li>
+      {% endfor %}
+    </ol>
+  </nav>
+
+  <div class="form-card">
+    {% if vform.non_field_errors %}<div class="form-errors" style="margin:var(--pad) var(--pad) 0">{% icon 'alert-circle' 16 %}{{ vform.non_field_errors|join:' ' }}</div>{% endif %}
+
+    <!-- Step 1 -->
+    <section class="form-section step-panel" data-step-panel aria-labelledby="s1">
+      <div class="form-section-head"><h2 id="s1" tabindex="-1">Basic Information</h2><p>Identify the vehicle as shown on its registration card.</p></div>
+      <div class="field-label" style="margin-bottom:10px">Vehicle type<span class="req">*</span></div>
+      <div role="radiogroup" aria-label="Vehicle type" style="margin-bottom:22px">
+        {% for group, options in vform.fields.vehicle_type.choices %}{% if group %}
+        <p class="type-group-label">{{ group }}</p>
+        <div class="type-grid">
+          {% for value, label in options %}
+          <button type="button" class="type-pick" data-type-pick="{{ value }}" role="radio" aria-checked="false">
+            <span class="vt-ico">{% type_icon value 19 %}</span><span>{{ label }}</span>
+          </button>
+          {% endfor %}
+        </div>
+        {% endif %}{% endfor %}
+      </div>
+      <div class="fields">
+        {% for f in step_fields.basic %}{% field f %}{% endfor %}
+      </div>
+    </section>
+
+    <!-- Step 2 -->
+    <section class="form-section step-panel" data-step-panel aria-labelledby="s2" hidden>
+      <div class="form-section-head"><h2 id="s2" tabindex="-1">Ownership</h2><p>Fields adjust to the ownership type you choose.</p></div>
+      <div class="fields">
+        {% for f in step_fields.ownership %}{% field f %}{% endfor %}
+      </div>
+    </section>
+
+    <!-- Step 3 -->
+    <section class="form-section step-panel" data-step-panel aria-labelledby="s3" hidden>
+      <div class="form-section-head"><h2 id="s3" tabindex="-1">Insurance &amp; Road Tax</h2><p>Record the current cover and road tax if you have them. Costs entered here are saved as paid expenses; leave cost blank if unknown.</p></div>
+      <div data-show-types="{{ insured_types }}">
+        <h3 style="display:flex;gap:8px;align-items:center;margin-bottom:14px">{% icon 'shield' 17 %} Insurance</h3>
+        <div class="fields three">
+          {% for f in ins_form %}{% field f %}{% endfor %}
+        </div>
+      </div>
+      <div class="missing-box" data-needs-type data-show-types="{{ uninsured_types }}" style="margin-bottom:16px"><span class="mb-text">{% icon 'shield' 18 %} Insurance is usually not required for this type. You can add it later from the vehicle profile if you have cover.</span></div>
+      <div data-show-types="{{ road_tax_types }}">
+        <div style="height:1px;background:var(--line);margin:24px 0"></div>
+        <h3 style="display:flex;gap:8px;align-items:center;margin-bottom:14px">{% icon 'receipt' 17 %} Road Tax (LKM)</h3>
+        <div class="fields three">
+          {% for f in rt_form %}{% field f %}{% endfor %}
+        </div>
+      </div>
+      <div class="missing-box" data-needs-type data-show-types="{{ no_road_tax_types }}"><span class="mb-text">{% icon 'receipt' 18 %} JPJ road tax does not apply to this vehicle type, so it won't be tracked or flagged.</span></div>
+    </section>
+
+    <!-- Step 4 -->
+    <section class="form-section step-panel" data-step-panel aria-labelledby="s4" hidden>
+      <div class="form-section-head"><h2 id="s4" tabindex="-1">Driver Assignment</h2><p>Optional. You can assign or change drivers later from the vehicle profile.</p></div>
+      <div data-only-trailer hidden class="missing-box"><span class="mb-text">{% icon 'trailer' 20 %} Trailers aren't assigned drivers. Assign the prime mover that tows it instead.</span></div>
+      <div data-only-motorised>
+        {% if has_drivers %}
+        <div class="fields">{% field setup.driver hint='They become the primary driver from today.' %}</div>
+        {% else %}
+        <div class="missing-box"><span class="mb-text">{% icon 'users' 20 %} No drivers registered yet.</span>
+          {% if perms.fleet.add_driver %}<a class="btn btn-secondary btn-sm" href="{% url 'fleet:driver_create' %}" target="_blank" rel="noopener">{% icon 'plus' 15 %} Add a driver (new tab)</a>{% endif %}</div>
+        {% endif %}
+      </div>
+    </section>
+
+    <!-- Step 5 -->
+    <section class="form-section step-panel" data-step-panel aria-labelledby="s5" hidden>
+      <div class="form-section-head"><h2 id="s5" tabindex="-1">Operational Information</h2><p>Where the vehicle is based and its specifications.</p></div>
+      <div class="fields">
+        {% for f in step_fields.operations %}{% field f %}{% endfor %}
+      </div>
+    </section>
+
+    <!-- Step 6 -->
+    <section class="form-section step-panel" data-step-panel aria-labelledby="s6" hidden>
+      <div class="form-section-head"><h2 id="s6" tabindex="-1">Documents &amp; Review</h2><p>Attach key documents (optional), then check the details before saving.</p></div>
+      <div class="fields">
+        {% field setup.registration_file %}
+        {% field setup.insurance_file %}
+        {% field setup.road_tax_file %}
+        {% field setup.other_files %}
+      </div>
+      <p class="hint" style="margin-top:8px">Files are stored privately. Drafts don't keep attachments, so add them just before you finish.</p>
+      <h3 style="margin:26px 0 12px">Review</h3>
+      <div class="review-grid">
+        {% for key, title, desc in steps|slice:':5' %}
+        <div class="review-block" data-review="{{ forloop.counter }}">
+          <h4>{{ title }} <button type="button" class="link-btn" data-edit-step="{{ forloop.counter }}">Edit</button></h4>
+          <dl></dl>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <div class="form-actions">
+      <button class="btn btn-ghost" type="button" data-prev hidden>{% icon 'chevron-left' 16 %} Back</button>
+      <span class="spacer"></span>
+      <button class="btn btn-secondary" type="submit" name="action" value="draft" formnovalidate>{% icon 'save' 16 %} Save draft</button>
+      <button class="btn btn-primary" type="button" data-next>Continue {% icon 'chevron-right' 16 %}</button>
+      <button class="btn btn-primary" type="submit" name="action" value="save" data-finish>{% icon 'check' 16 %} Add vehicle</button>
+    </div>
+  </div>
+</form>
+<noscript><style>[data-step-panel][hidden]{display:block!important}[data-next],[data-prev]{display:none!important}</style></noscript>
+{% endblock %}

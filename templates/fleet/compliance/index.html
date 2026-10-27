@@ -1,0 +1,118 @@
+{% extends 'fleet/layout.html' %}
+{% block title %}Insurance & Road Tax{% endblock %}
+{% block page_title %}Insurance &amp; Road Tax{% endblock %}
+{% block crumbs %}<li aria-current="page">Insurance &amp; Road Tax</li>{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Insurance &amp; Road Tax</h1><p class="lede">Renewal monitoring for every vehicle in the operating fleet, calculated from recorded expiry dates.</p></div>
+  <div class="actions">
+    <a class="btn btn-secondary" href="{% qs export='xlsx' %}">{% icon 'download' 16 %} Export</a>
+  </div>
+</div>
+
+<div class="grid g-4">
+  <a class="card metric alert-card {% if summary.expired %}red{% else %}green zero{% endif %} tone-{% if summary.expired %}red{% else %}green{% endif %}" href="?window=expired">
+    <div class="metric-top"><span class="metric-icon">{% icon 'alert' 20 %}</span><span class="go">{% icon 'chevron-right' 18 %}</span></div>
+    <div><div class="metric-value">{{ summary.expired }}</div><div class="metric-label">Expired</div><div class="metric-sub">Insurance and road tax combined</div></div>
+  </a>
+  <a class="card metric alert-card {% if summary.due_7 %}amber{% else %}blue zero{% endif %} tone-amber" href="?window=7">
+    <div class="metric-top"><span class="metric-icon">{% icon 'clock' 20 %}</span><span class="go">{% icon 'chevron-right' 18 %}</span></div>
+    <div><div class="metric-value">{{ summary.due_7 }}</div><div class="metric-label">Due Within 7 Days</div></div>
+  </a>
+  <a class="card metric alert-card blue tone-blue" href="?window=30">
+    <div class="metric-top"><span class="metric-icon">{% icon 'calendar' 20 %}</span><span class="go">{% icon 'chevron-right' 18 %}</span></div>
+    <div><div class="metric-value">{{ summary.due_30 }}</div><div class="metric-label">Due Within 30 Days</div></div>
+  </a>
+  <div class="card metric alert-card green tone-green">
+    <div class="metric-top"><span class="metric-icon">{% icon 'check-circle' 20 %}</span></div>
+    <div><div class="metric-value">{{ summary.renewed }}</div><div class="metric-label">Renewed This Month</div><div class="metric-sub">Since 1 {{ today|date:'F' }}</div></div>
+  </div>
+</div>
+
+<section class="card flush table-card section">
+  <div class="toolbar">
+    <div class="segmented" role="group" aria-label="Document type">
+      <a href="{% qs kind=None %}" aria-current="{% if not request.GET.kind %}true{% else %}false{% endif %}">All</a>
+      <a href="{% qs kind='insurance' %}" aria-current="{% if request.GET.kind == 'insurance' %}true{% else %}false{% endif %}">Insurance</a>
+      <a href="{% qs kind='road_tax' %}" aria-current="{% if request.GET.kind == 'road_tax' %}true{% else %}false{% endif %}">Road Tax</a>
+    </div>
+    <form method="get" data-autosubmit class="actions">
+      {% for k, v in request.GET.items %}{% if k != 'window' and k != 'q' %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endif %}{% endfor %}
+      <label class="sr-only" for="win">Expiry window</label>
+      <select class="chip-select{% if request.GET.window %} is-set{% endif %}" id="win" name="window" style="width:auto">
+        {% for k, l in windows %}<option value="{{ k }}"{% if request.GET.window == k %} selected{% endif %}>{{ l }}</option>{% endfor %}
+      </select>
+      <div class="search" style="width:200px">{% icon 'search' 16 %}<label class="sr-only" for="cq">Registration</label><input id="cq" type="search" name="q" value="{{ request.GET.q }}" placeholder="Registration…"></div>
+    </form>
+    <span class="grow"></span>
+    <div class="segmented" role="group" aria-label="View">
+      <a href="{% qs view=None month=None %}" aria-current="{% if view != 'calendar' %}true{% else %}false{% endif %}">{% icon 'list' 15 %} Table</a>
+      <a href="{% qs view='calendar' %}" aria-current="{% if view == 'calendar' %}true{% else %}false{% endif %}">{% icon 'calendar' 15 %} Calendar</a>
+    </div>
+  </div>
+
+  {% if not has_vehicles %}
+  {% url 'fleet:vehicle_create' as add_url %}
+  {% include 'ui/empty.html' with ico='shield' title='No vehicles to monitor yet' text='Add vehicles with their insurance and road tax expiry dates to start tracking renewals.' action_url=add_url action_label='Add Vehicle' %}
+  {% elif view == 'calendar' %}
+  <div class="toolbar" style="justify-content:space-between">
+    <a class="btn btn-ghost btn-sm" href="{% qs month=prev_month|date:'Y-m' %}" aria-label="Previous month">{% icon 'chevron-left' 16 %}</a>
+    <h2>{{ month|date:'F Y' }}</h2>
+    <a class="btn btn-ghost btn-sm" href="{% qs month=next_month|date:'Y-m' %}" aria-label="Next month">{% icon 'chevron-right' 16 %}</a>
+  </div>
+  <div class="cal" role="grid" aria-label="Expiry calendar {{ month|date:'F Y' }}">
+    <div class="cal-dow" role="columnheader">Mon</div><div class="cal-dow" role="columnheader">Tue</div><div class="cal-dow" role="columnheader">Wed</div><div class="cal-dow" role="columnheader">Thu</div><div class="cal-dow" role="columnheader">Fri</div><div class="cal-dow" role="columnheader">Sat</div><div class="cal-dow" role="columnheader">Sun</div>
+    {% for week in weeks %}{% for day in week %}
+    <div class="cal-day{% if not day.in_month %} out{% endif %}{% if day.date == today %} today{% endif %}" role="gridcell">
+      <span class="d">{{ day.date.day }}</span>
+      {% for row in day.items %}<a class="cal-item {{ row.tone }}" href="{{ row.vehicle.get_absolute_url }}?tab={{ row.kind }}" title="{{ row.vehicle.registration_no }} · {{ row.kind_label }} · {{ row.label }}">{% if row.kind == 'insurance' %}INS{% else %}RT{% endif %} {{ row.vehicle.registration_no }}</a>{% endfor %}
+    </div>
+    {% endfor %}{% endfor %}
+  </div>
+  <p class="small muted" style="padding:12px var(--pad)">INS = insurance, RT = road tax. Showing the current record for each vehicle.</p>
+  {% elif rows %}
+  <div class="table-wrap sticky">
+    <table class="table stack">
+      <thead><tr><th scope="col">Registration No.</th><th scope="col">Document Type</th><th scope="col">Expiry Date</th><th scope="col" class="r">Days Remaining</th><th scope="col">Renewal Status</th><th scope="col">Responsible</th><th scope="col" class="r"><span class="sr-only">Actions</span></th></tr></thead>
+      <tbody>
+        {% for row in rows %}
+        <tr class="{% if row.state == 'expired' %}is-expired{% elif row.state == 'due_7' or row.state == 'due_30' %}is-warning{% endif %}">
+          <td class="cell-main" data-label="Vehicle">{% include 'ui/vehicle_cell.html' with v=row.vehicle sub=row.vehicle.make_model %}</td>
+          <td data-label="Document"><span class="vtype small">{% if row.kind == 'insurance' %}{% icon 'shield' 15 %}{% else %}{% icon 'receipt' 15 %}{% endif %} {{ row.kind_label }}</span>{% if row.record.provider %}<span class="sub small muted" style="display:block">{{ row.record.provider }}</span>{% endif %}</td>
+          <td data-label="Expiry" class="num nowrap">{% if row.record %}{{ row.record.expiry_date|date:'d M Y' }}{% else %}<span class="subtle">—</span>{% endif %}</td>
+          <td data-label="Days" class="num nowrap" style="{% if row.state == 'expired' %}color:var(--danger-ink);font-weight:600{% elif row.state == 'due_7' %}color:var(--warning-ink);font-weight:600{% endif %}">{% if row.days is not None %}{{ row.days|days_label }}{% else %}—{% endif %}</td>
+          <td data-label="Status">{% badge row.state row.label row.tone %}</td>
+          <td data-label="Responsible">{% if row.record.responsible %}<span class="vehicle-cell" style="gap:8px"><span class="avatar sm">{{ row.record.responsible|initials }}</span>{{ row.record.responsible|display_name }}</span>{% else %}<span class="subtle">Unassigned</span>{% endif %}</td>
+          <td>
+            <div class="row-actions">
+              {% if perms.fleet.add_compliancerecord %}<a class="btn btn-soft btn-xs" href="{% url 'fleet:compliance_renew' row.vehicle.pk row.kind %}?next={{ request.get_full_path|urlencode }}">{% if row.record %}{% icon 'refresh' 14 %} Renew{% else %}{% icon 'plus' 14 %} Add{% endif %}</a>{% endif %}
+              {% if row.record and perms.fleet.change_compliancerecord %}
+              <div class="pop">
+                <button class="btn btn-ghost btn-xs btn-icon" type="button" data-pop-trigger aria-haspopup="menu" aria-expanded="false" aria-label="More actions for {{ row.vehicle.registration_no }} {{ row.kind_label }}">{% icon 'more' 15 %}</button>
+                <div class="pop-panel" role="menu" style="min-width:240px">
+                  <form method="post" action="{% url 'fleet:compliance_workflow' row.record.pk %}">{% csrf_token %}
+                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                    {% if row.record.workflow == 'in_progress' %}<input type="hidden" name="workflow" value=""><button class="menu-item" role="menuitem" type="submit">{% icon 'x' 15 %} Clear “in progress”</button>
+                    {% else %}<input type="hidden" name="workflow" value="in_progress"><button class="menu-item" role="menuitem" type="submit">{% icon 'clock' 15 %} Mark renewal in progress</button>{% endif %}
+                  </form>
+                  <form method="post" action="{% url 'fleet:compliance_workflow' row.record.pk %}">{% csrf_token %}
+                    <input type="hidden" name="next" value="{{ request.get_full_path }}"><input type="hidden" name="workflow" value="{{ row.record.workflow }}"><input type="hidden" name="responsible" value="{{ user.pk }}">
+                    <button class="menu-item" role="menuitem" type="submit">{% icon 'user' 15 %} Assign to me</button>
+                  </form>
+                  <a class="menu-item" role="menuitem" href="{% url 'fleet:compliance_edit' row.record.pk %}">{% icon 'edit' 15 %} Edit record</a>
+                  <a class="menu-item" role="menuitem" href="{% url 'fleet:compliance_renew' row.vehicle.pk row.kind %}?next={{ request.get_full_path|urlencode }}">{% icon 'upload' 15 %} Upload renewed document</a>
+                </div>
+              </div>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  {% include 'ui/empty.html' with ico='check-circle' title='Nothing in this view' text='No insurance or road tax records match the selected filters.' %}
+  {% endif %}
+</section>
+{% endblock %}

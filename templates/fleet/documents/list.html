@@ -1,0 +1,45 @@
+{% extends 'fleet/layout.html' %}
+{% block title %}Documents{% endblock %}
+{% block page_title %}Documents{% endblock %}
+{% block crumbs %}<li aria-current="page">Documents</li>{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Documents</h1><p class="lede">Registration cards, cover notes, permits, inspection reports, quotations and invoices.</p></div>
+  <div class="actions">{% if perms.fleet.add_document %}<button class="btn btn-primary" type="button" data-open="upload-dialog">{% icon 'upload' 16 %} Upload Document</button>{% endif %}</div>
+</div>
+
+<section class="card flush table-card">
+  <form method="get" data-autosubmit>
+    <div class="toolbar">
+      <div class="search">{% icon 'search' 16 %}<label class="sr-only" for="dq">Search documents</label><input id="dq" type="search" name="q" value="{{ request.GET.q }}" placeholder="Search documents…"></div>
+      <label class="sr-only" for="dc">Category</label>
+      <select class="chip-select{% if request.GET.category %} is-set{% endif %}" id="dc" name="category" style="width:auto"><option value="">All categories</option>{% for k, l in categories %}<option value="{{ k }}"{% if request.GET.category == k %} selected{% endif %}>{{ l }}</option>{% endfor %}</select>
+      <label class="sr-only" for="dv">Vehicle</label>
+      <select class="chip-select{% if request.GET.vehicle %} is-set{% endif %}" id="dv" name="vehicle" style="width:auto"><option value="">All vehicles</option>{% for v in vehicles %}<option value="{{ v.pk }}"{% if request.GET.vehicle == v.pk|stringformat:'d' %} selected{% endif %}>{{ v.registration_no }}</option>{% endfor %}</select>
+      <label class="sr-only" for="de">Expiry</label>
+      <select class="chip-select{% if request.GET.expiry %} is-set{% endif %}" id="de" name="expiry" style="width:auto"><option value="">Any expiry</option>{% for k, l in expiry_filters %}<option value="{{ k }}"{% if request.GET.expiry == k %} selected{% endif %}>{{ l }}</option>{% endfor %}</select>
+      {% if request.GET.q or request.GET.category or request.GET.vehicle or request.GET.expiry %}<a class="btn btn-ghost btn-sm" href="{% url 'fleet:document_list' %}">Clear</a>{% endif %}
+      <span class="grow"></span><span class="small muted"><span class="num r">{{ page.paginator.count }}</span> document{{ page.paginator.count|pluralize }}</span>
+    </div>
+  </form>
+  {% if page.object_list %}
+  <div class="table-wrap">
+    <table class="table stack">
+      <thead><tr><th>Document Name</th><th>Category</th><th>Linked Vehicle</th><th>Issue Date</th><th>Expiry Date</th><th>Uploaded By</th><th>Last Updated</th><th class="r"><span class="sr-only">Actions</span></th></tr></thead>
+      <tbody>{% for d in page %}{% include 'ui/doc_row.html' with d=d %}{% endfor %}</tbody>
+    </table>
+  </div>
+  {% include 'ui/pagination.html' %}
+  {% elif has_any %}
+  {% include 'ui/empty.html' with ico='search' title='No documents match' text='Try another search or clear the filters.' small=True %}
+  {% else %}
+  <div class="empty">
+    <span class="e-ico">{% icon 'file' 24 %}</span>
+    <h3>No documents uploaded yet</h3>
+    <p>Keep each vehicle's registration card, insurance cover note, road tax and permits on file. Uploads are private and permission-protected.</p>
+    {% if perms.fleet.add_document %}<div class="actions"><button class="btn btn-primary btn-sm" type="button" data-open="upload-dialog">{% icon 'upload' 15 %} Upload Document</button></div>{% endif %}
+  </div>
+  {% endif %}
+</section>
+{% endblock %}
+{% block modals %}{% if perms.fleet.add_document %}{% include 'ui/upload_modal.html' with form=form %}{% endif %}{% endblock %}

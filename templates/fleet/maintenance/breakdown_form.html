@@ -1,0 +1,52 @@
+{% extends 'fleet/layout.html' %}
+{% block title %}{% if breakdown %}Edit {{ breakdown.code }}{% else %}Report Breakdown{% endif %}{% endblock %}
+{% block page_title %}{% if breakdown %}Edit {{ breakdown.code }}{% else %}Report Breakdown{% endif %}{% endblock %}
+{% block crumbs %}<li><a href="{% url 'fleet:maintenance' %}">Maintenance</a></li><li aria-current="page">{% if breakdown %}{{ breakdown.code }}{% else %}Report breakdown{% endif %}</li>{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>{% if breakdown %}Edit breakdown {{ breakdown.code }}{% else %}Report a breakdown{% endif %}</h1>
+    <p class="lede">{% if breakdown %}Update the original report.{% else %}Capture what happened now — diagnosis, quotation and costs can be added as the repair progresses.{% endif %}</p></div>
+</div>
+<form method="post" enctype="multipart/form-data" class="form-card" novalidate>
+  {% csrf_token %}
+  {% if form.errors %}<div class="form-errors" style="margin:var(--pad) var(--pad) 0" role="alert">{% icon 'alert-circle' 16 %}<span>Please correct the highlighted fields.</span></div>{% endif %}
+  <section class="form-section">
+    <div class="form-section-head"><h2>Incident</h2></div>
+    <div class="fields">
+      {% field form.vehicle %}{% field form.reported_on %}
+      {% field form.problem True %}
+      {% field form.severity %}{% field form.location %}
+      {% field form.description %}
+    </div>
+    {% if form.severity %}
+    <div class="grid g-4" style="gap:10px;margin-top:16px" aria-hidden="true">
+      <div class="pill">{% badge 'low' 'Low' %} Minor, still drivable</div>
+      <div class="pill">{% badge 'medium' 'Medium' %} Needs workshop soon</div>
+      <div class="pill">{% badge 'high' 'High' %} Not safe to operate</div>
+      <div class="pill">{% badge 'critical' 'Critical' %} Stranded / accident</div>
+    </div>
+    {% endif %}
+  </section>
+  <section class="form-section">
+    <div class="form-section-head"><h2>Workshop</h2><p>Optional at this stage.</p></div>
+    <div class="fields">{% field form.workshop %}{% field form.estimated_cost %}</div>
+  </section>
+  {% if form.photos %}
+  <section class="form-section">
+    <div class="form-section-head"><h2>Photos</h2><p>Damage, warning lights or the scene.</p></div>
+    <div class="dropzone" data-max-mb="20">
+      <span class="dz-ico">{% icon 'image' 22 %}</span>
+      <p><strong>Click to add photos</strong> or drag them here</p>
+      <input type="file" name="photos" accept="image/*" multiple aria-label="Choose photos">
+    </div>
+    <div class="dz-list"></div>
+    {% if form.photos.errors %}<p class="error-text" style="margin-top:8px">{% icon 'alert-circle' 14 %}{{ form.photos.errors|join:' ' }}</p>{% endif %}
+    <div style="margin-top:16px">{% field form.take_off_road True %}</div>
+  </section>
+  {% endif %}
+  <div class="form-actions">
+    <a class="btn btn-secondary" href="{% if breakdown %}{{ breakdown.get_absolute_url }}{% else %}{% url 'fleet:maintenance' %}{% endif %}">Cancel</a>
+    <button class="btn btn-primary" type="submit">{% icon 'check' 16 %} {% if breakdown %}Save{% else %}Report breakdown{% endif %}</button>
+  </div>
+</form>
+{% endblock %}

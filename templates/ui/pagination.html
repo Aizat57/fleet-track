@@ -1,0 +1,12 @@
+{% if page.paginator.num_pages > 1 or page.paginator.count > 10 %}
+<nav class="pagination" aria-label="Pagination">
+  <span>Showing <strong class="num r">{{ page.start_index }}–{{ page.end_index }}</strong> of <strong class="num r">{{ page.paginator.count }}</strong></span>
+  {% if page.paginator.num_pages > 1 %}
+  <div class="pages">
+    {% if page.has_previous %}<a class="btn btn-secondary btn-sm" href="?{{ page.querystring }}{% if page.querystring %}&amp;{% endif %}page={{ page.previous_page_number }}" aria-label="Previous page">{% icon 'chevron-left' 15 %}</a>{% endif %}
+    <span class="btn btn-ghost btn-sm" aria-current="page">Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
+    {% if page.has_next %}<a class="btn btn-secondary btn-sm" href="?{{ page.querystring }}{% if page.querystring %}&amp;{% endif %}page={{ page.next_page_number }}" aria-label="Next page">{% icon 'chevron-right' 15 %}</a>{% endif %}
+  </div>
+  {% endif %}
+</nav>
+{% endif %}

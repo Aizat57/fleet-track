@@ -1,0 +1,172 @@
+{% extends 'fleet/layout.html' %}
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+{% block content %}
+
+<section class="card hero" aria-labelledby="greet">
+  <div style="position:relative">
+    <p class="date">{% icon 'calendar' 14 %} {{ today|date:'l, j F Y' }}</p>
+    <h1 id="greet">{{ greeting }}, {{ user.first_name|default:user.username }}</h1>
+    <p class="muted" style="margin-top:6px;font-size:14.5px">Here's your fleet overview and the items that need your attention.</p>
+  </div>
+  <div class="actions" style="position:relative">
+    <a class="btn btn-secondary" href="{% url 'fleet:reports' %}">{% icon 'chart' 16 %} Generate Report</a>
+    {% if perms.fleet.add_vehicle %}<a class="btn btn-primary" href="{% url 'fleet:vehicle_create' %}">{% icon 'plus' 16 %} Add Vehicle</a>{% endif %}
+  </div>
+</section>
+
+{% if not has_vehicles %}
+<section class="card section">
+  {% url 'fleet:vehicle_create' as add_url %}{% url 'fleet:vehicle_import' as import_url %}
+  {% include 'ui/empty.html' with ico='car' title='Start by adding your first vehicle' text='Once vehicles are registered, FleetTrack will monitor insurance and road tax expiry, breakdowns, maintenance and costs here.' action_url=add_url action_label='Add Vehicle' action2_url=import_url action2_label='Import from Excel' %}
+</section>
+{% else %}
+
+<!-- B. Fleet overview -->
+<section class="section" aria-labelledby="fleet-h">
+  <div class="section-head"><div><h2 id="fleet-h">Fleet Overview</h2><p>Operating fleet only — archived, sold and disposed vehicles are excluded.</p></div></div>
+  <div class="grid g-4">
+    {% url 'fleet:vehicle_list' as vl %}
+    {% include 'ui/metric.html' with url=vl ico='car' tone='blue' value=counts.total label='Total Vehicles' sub='In the operating fleet' %}
+    {% with u=vl|add:'?status=active' %}{% include 'ui/metric.html' with url=u ico='check-circle' tone='green' value=counts.active label='Active Vehicles' sub=counts.available|stringformat:'d'|add:' available on standby' %}{% endwith %}
+    {% with u=vl|add:'?status=maintenance' %}{% include 'ui/metric.html' with url=u ico='wrench' tone='amber' value=counts.maintenance label='Under Maintenance' sub='Currently in the workshop' %}{% endwith %}
+    {% with u=vl|add:'?status=out_of_service' %}{% include 'ui/metric.html' with url=u ico='ban' tone='red' value=counts.out_of_service label='Out of Service' sub='Not available for use' %}{% endwith %}
+  </div>
+</section>
+
+<!-- C. Compliance -->
+<section class="section" aria-labelledby="comp-h">
+  <div class="section-head">
+    <div><h2 id="comp-h">Insurance &amp; Road Tax</h2><p>Calculated from the latest recorded expiry date of each vehicle.</p></div>
+    <a class="link-btn" href="{% url 'fleet:compliance' %}">Open renewals {% icon 'chevron-right' 15 %}</a>
+  </div>
+  <div class="grid g-4">
+    <a class="card metric alert-card {% if compliance.ins_expired %}red{% else %}green zero{% endif %} tone-{% if compliance.ins_expired %}red{% else %}green{% endif %}" href="{% url 'fleet:compliance' %}?kind=insurance&window=expired">
+      <div class="metric-top"><span class="metric-icon">{% icon 'shield' 20 %}</span>{% if compliance.ins_expired %}{% badge 'expired' 'Action needed' %}{% else %}{% badge 'valid' 'All valid' %}{% endif %}</div>
+      <div><div class="metric-value">{{ compliance.ins_expired }}</div><div class="metric-label">Expired Insurance</div></div>
+    </a>
+    <a class="card metric alert-card {% if compliance.rt_expired %}red{% else %}green zero{% endif %} tone-{% if compliance.rt_expired %}red{% else %}green{% endif %}" href="{% url 'fleet:compliance' %}?kind=road_tax&window=expired">
+      <div class="metric-top"><span class="metric-icon">{% icon 'receipt' 20 %}</span>{% if compliance.rt_expired %}{% badge 'expired' 'Action needed' %}{% else %}{% badge 'valid' 'All valid' %}{% endif %}</div>
+      <div><div class="metric-value">{{ compliance.rt_expired }}</div><div class="metric-label">Expired Road Tax</div></div>
+    </a>
+    <a class="card metric alert-card {% if compliance.within_30 %}amber{% else %}blue zero{% endif %} tone-amber" href="{% url 'fleet:compliance' %}?window=30">
+      <div class="metric-top"><span class="metric-icon">{% icon 'clock' 20 %}</span><span class="go">{% icon 'chevron-right' 18 %}</span></div>
+      <div><div class="metric-value">{{ compliance.within_30 }}</div><div class="metric-label">Expiring Within 30 Days</div></div>
+    </a>
+    <a class="card metric alert-card blue tone-blue" href="{% url 'fleet:compliance' %}?window=60">
+      <div class="metric-top"><span class="metric-icon">{% icon 'calendar' 20 %}</span><span class="go">{% icon 'chevron-right' 18 %}</span></div>
+      <div><div class="metric-value">{{ compliance.within_60 }}</div><div class="metric-label">Expiring Within 60 Days</div><div class="metric-sub">Up to {{ expiry_60|date:'d M Y' }}</div></div>
+    </a>
+  </div>
+</section>
+
+<!-- G. Needs attention + F. status distribution -->
+<section class="section grid g-main">
+  <div class="card flush table-card">
+    <div class="card-head">
+      <div><h2>Needs Your Attention</h2><p>Expired and critical items first, then upcoming renewals.</p></div>
+      {% if attention_total %}<span class="pill"><span class="num r">{{ attention_total }}</span> open item{{ attention_total|pluralize }}</span>{% endif %}
+    </div>
+    {% if attention %}
+    <div class="table-wrap" style="margin-top:14px">
+      <table class="table compact stack">
+        <thead><tr><th scope="col">Vehicle</th><th scope="col">Issue</th><th scope="col">Due Date</th><th scope="col">Priority</th><th scope="col">Status</th><th scope="col" class="r"><span class="sr-only">Action</span></th></tr></thead>
+        <tbody>
+        {% for a in attention %}
+          <tr class="{% if a.priority == 'critical' %}is-expired{% elif a.priority == 'high' %}is-warning{% endif %}">
+            <td class="cell-main" data-label="Vehicle">{% include 'ui/vehicle_cell.html' with v=a.vehicle %}</td>
+            <td class="issue" data-label="Issue">{{ a.issue }}</td>
+            <td data-label="Due" class="nowrap num">{% if a.due_date %}{{ a.due_date|date:'d M Y' }}{% else %}<span class="subtle">—</span>{% endif %}</td>
+            <td data-label="Priority"><span class="priority {{ a.priority }}"><span class="bars" aria-hidden="true"><i></i><i></i><i></i></span>{{ a.priority|title }}</span></td>
+            <td data-label="Status">{% badge a.status a.status a.tone %}</td>
+            <td class="r"><a class="btn btn-soft btn-xs" href="{{ a.action_url }}">{{ a.action_label }}</a></td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="card-foot"><a class="link-btn" href="{% url 'fleet:notifications' %}">View All {% icon 'chevron-right' 15 %}</a></div>
+    {% else %}
+    {% include 'ui/empty.html' with ico='check-circle' title='Nothing needs your attention' text='No expired or upcoming renewals, critical breakdowns, overdue maintenance or missing documents.' small=True %}
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <div class="card-head"><div><h2>Vehicle Status</h2><p>Click a status to see those vehicles.</p></div></div>
+    {{ distribution|json_script:'status-data' }}
+    <div class="donut-wrap stacked">
+      <div class="donut" data-chart="donut" data-source="status-data" data-legend="status-legend">
+        <div class="center"><div><strong>{{ counts.total }}</strong><span>vehicles</span></div></div>
+      </div>
+      <ul class="legend" id="status-legend" aria-label="Vehicle status distribution">
+        {% for s in distribution %}
+        <li><a href="{{ s.url }}" data-key="{{ s.key }}"><span class="sw" style="background:{{ s.color }}" aria-hidden="true"></span>{{ s.label }}<span class="lv">{{ s.value }}</span><span class="lp">{% if counts.total %}{% widthratio s.value counts.total 100 %}%{% else %}0%{% endif %}</span></a></li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- D/E. Finance -->
+<section class="section" aria-labelledby="fin-h">
+  <div class="section-head">
+    <div><h2 id="fin-h">Fleet Financial Overview</h2><p>Actual expenses (paid and outstanding) for {{ period_label|lower }}. Forecasts are excluded.</p></div>
+    {% if has_expenses %}{% include 'ui/period.html' with id='dash' %}{% endif %}
+  </div>
+  {% if finance %}
+  <div class="grid g-4">
+    <a class="card metric tone-blue" href="{% url 'fleet:expense_list' %}?period={{ period }}&start={{ period_start|date:'Y-m-d' }}&end={{ period_end|date:'Y-m-d' }}">
+      <div class="metric-top"><span class="metric-icon">{% icon 'wallet' 20 %}</span><span class="go">{% icon 'chevron-right' 18 %}</span></div>
+      <div><div class="metric-value md">{{ finance.total|rm }}</div><div class="metric-label">Total Expenses · {{ period_label }}</div><div class="metric-sub">{{ finance.count }} transaction{{ finance.count|pluralize }}</div></div>
+    </a>
+    <a class="card metric tone-amber" href="{% url 'fleet:expense_list' %}?period={{ period }}&start={{ period_start|date:'Y-m-d' }}&end={{ period_end|date:'Y-m-d' }}&category=repair">
+      <div class="metric-top"><span class="metric-icon">{% icon 'wrench' 20 %}</span><span class="go">{% icon 'chevron-right' 18 %}</span></div>
+      <div><div class="metric-value md">{{ finance.maintenance|rm }}</div><div class="metric-label">Maintenance &amp; Repair Costs</div><div class="metric-sub">Servicing, repairs and tyres</div></div>
+    </a>
+    <a class="card metric tone-navy" href="{% url 'fleet:expense_list' %}?period={{ period }}&start={{ period_start|date:'Y-m-d' }}&end={{ period_end|date:'Y-m-d' }}&category=insurance">
+      <div class="metric-top"><span class="metric-icon">{% icon 'shield' 20 %}</span><span class="go">{% icon 'chevron-right' 18 %}</span></div>
+      <div><div class="metric-value md">{{ finance.compliance|rm }}</div><div class="metric-label">Insurance &amp; Road Tax Costs</div><div class="metric-sub">Insurance {{ finance.insurance|rm }} · Road tax {{ finance.road_tax|rm }}</div></div>
+    </a>
+    <a class="card metric tone-slate" href="{% url 'fleet:expense_list' %}?period=ytd">
+      <div class="metric-top"><span class="metric-icon">{% icon 'chart' 20 %}</span><span class="go">{% icon 'chevron-right' 18 %}</span></div>
+      <div><div class="metric-value md">{{ finance.ytd|rm }}</div><div class="metric-label">Year-to-Date Expenses</div><div class="metric-sub">1 Jan – {{ period_end|date:'d M Y' }}</div></div>
+    </a>
+  </div>
+  <div class="grid g-main" style="margin-top:var(--gap)">
+    <div class="card">
+      <div class="card-head"><div><h2>Monthly Fleet Expenses</h2><p>Actual spend per month, last 12 months.</p></div></div>
+      {% if trend %}
+      {{ trend|json_script:'trend-data' }}
+      <div class="chart" data-chart="line" data-source="trend-data" data-height="260" data-label="Monthly fleet expenses over the last 12 months">
+        <div class="skeleton" style="height:260px"></div>
+      </div>
+      <details class="chart-table"><summary>{% icon 'list' 14 %} View as table</summary>
+        <div class="table-wrap"><table class="table compact"><thead><tr><th>Month</th><th class="r">Actual spend</th></tr></thead>
+        <tbody>{% for m in trend %}<tr><td>{{ m.full }}</td><td class="num r">{{ m.value|rm }}</td></tr>{% endfor %}</tbody></table></div>
+      </details>
+      {% else %}
+      {% include 'ui/empty.html' with ico='chart' title='No expenses in the last 12 months' text='The trend appears once expenses dated within the past year are recorded.' small=True %}
+      {% endif %}
+    </div>
+    <!-- H. Recent activity -->
+    <div class="card">
+      <div class="card-head"><div><h2>Recent Activity</h2><p>Latest changes across the fleet.</p></div><a class="link-btn" href="{% url 'fleet:notifications' %}#activity">All</a></div>
+      {% include 'fleet/_activity.html' with items=activities %}
+    </div>
+  </div>
+  {% else %}
+  <div class="grid g-main">
+    <div class="card">
+      {% url 'fleet:expense_create' as exp_url %}
+      {% include 'ui/empty.html' with ico='wallet' title='No expenses recorded yet' text='Record fuel, servicing, repairs, insurance and road tax to see monthly totals, trends and year-to-date spend in RM.' action_url=exp_url action_label='Add Expense' %}
+    </div>
+    <div class="card">
+      <div class="card-head"><div><h2>Recent Activity</h2><p>Latest changes across the fleet.</p></div></div>
+      {% include 'fleet/_activity.html' with items=activities %}
+    </div>
+  </div>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}
+{% block scripts %}<script src="{% static 'js/charts.js' %}" defer></script>{% endblock %}

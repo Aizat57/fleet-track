@@ -1,0 +1,29 @@
+{% extends 'fleet/layout.html' %}
+{% block title %}Settings{% endblock %}
+{% block page_title %}Settings{% endblock %}
+{% block crumbs %}<li aria-current="page">Settings</li>{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Settings</h1><p class="lede">Your profile, and the departments and locations used across the fleet.</p></div></div>
+<div class="grid g-2">
+  <form method="post" class="form-card" id="profile">
+    {% csrf_token %}<input type="hidden" name="section" value="profile">
+    <section class="form-section">
+      <div class="form-section-head" style="display:flex;gap:14px;align-items:center"><span class="avatar" style="width:52px;height:52px;font-size:18px">{{ user|initials }}</span><div><h2>Profile</h2><p>{{ user.username }} · {% if user.is_superuser %}Administrator{% else %}{% for g in groups %}{{ g.name }}{% if not forloop.last %}, {% endif %}{% empty %}No role assigned{% endfor %}{% endif %}</p></div></div>
+      <div class="fields">{% field profile.first_name %}{% field profile.last_name %}{% field profile.email True %}</div>
+    </section>
+    <div class="form-actions"><a class="btn btn-ghost" href="{% url 'password_change' %}">Change password</a><span class="spacer"></span><button class="btn btn-primary" type="submit">Save profile</button></div>
+  </form>
+
+  <div class="card">
+    <div class="card-head"><div><h2>Roles &amp; access</h2><p>Permissions are enforced on the server for every page, action and file download.</p></div></div>
+    <dl class="dl one">
+      <div><dt><strong>Fleet Manager</strong></dt><dd class="muted" style="font-weight:400">Full access: add, edit and delete records, upload and view documents.</dd></div>
+      <div><dt><strong>Fleet Viewer</strong></dt><dd class="muted" style="font-weight:400">Read-only. Cannot open stored documents.</dd></div>
+    </dl>
+    {% if user.is_staff %}<a class="btn btn-secondary" style="margin-top:16px" href="{% url 'admin:auth_user_changelist' %}">{% icon 'users' 16 %} Manage users &amp; roles</a>{% endif %}
+  </div>
+
+  {% include 'fleet/_master_list.html' with title='Departments' items=departments form=dept_form kind='department' ico='users' %}
+  {% include 'fleet/_master_list.html' with title='Locations' items=locations form=loc_form kind='location' ico='map-pin' %}
+</div>
+{% endblock %}

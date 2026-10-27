@@ -1,0 +1,16 @@
+<form class="period" method="get" data-autosubmit>
+  {% for k, v in request.GET.items %}{% if k != 'period' and k != 'start' and k != 'end' and k != 'page' %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endif %}{% endfor %}
+  <label class="sr-only" for="period-{{ id|default:'p' }}">Period</label>
+  <select class="chip-select is-set" id="period-{{ id|default:'p' }}" name="period" style="width:auto">
+    {% for key, label in periods %}<option value="{{ key }}"{% if key == period %} selected{% endif %}>{{ label }}</option>{% endfor %}
+  </select>
+  <span class="custom" data-custom-range{% if period != 'custom' %} hidden{% endif %}>
+    <label class="sr-only" for="ps-{{ id|default:'p' }}">From</label>
+    <input type="date" id="ps-{{ id|default:'p' }}" name="start" value="{{ period_start|date:'Y-m-d' }}">
+    <span class="muted">–</span>
+    <label class="sr-only" for="pe-{{ id|default:'p' }}">To</label>
+    <input type="date" id="pe-{{ id|default:'p' }}" name="end" value="{{ period_end|date:'Y-m-d' }}">
+    <button class="btn btn-soft btn-sm" type="submit">Apply</button>
+  </span>
+  <noscript><button class="btn btn-soft btn-sm" type="submit">Apply</button></noscript>
+</form>

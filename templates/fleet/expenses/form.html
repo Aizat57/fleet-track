@@ -1,0 +1,26 @@
+{% extends 'fleet/layout.html' %}
+{% block title %}{% if expense %}Edit Expense{% else %}Add Expense{% endif %}{% endblock %}
+{% block page_title %}{% if expense %}Edit Expense{% else %}Add Expense{% endif %}{% endblock %}
+{% block crumbs %}<li><a href="{% url 'fleet:expense_list' %}">Expenses</a></li><li aria-current="page">{% if expense %}Edit{% else %}New{% endif %}</li>{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>{% if expense %}Edit expense{% else %}Record an expense{% endif %}</h1><p class="lede">Every total in FleetTrack is calculated from these records.</p></div></div>
+<form method="post" class="form-card" style="max-width:860px" novalidate>
+  {% csrf_token %}
+  <input type="hidden" name="next" value="{{ next }}">
+  <section class="form-section">
+    <div class="fields">
+      {% field form.vehicle %}{% field form.date %}
+      {% field form.category %}{% field form.amount %}
+      {% field form.description True %}
+      {% field form.supplier %}{% field form.invoice_no %}
+      {% field form.payment_status True %}
+    </div>
+  </section>
+  <div class="form-actions">
+    <a class="btn btn-secondary" href="{{ next|default:'/expenses/' }}">Cancel</a>
+    <span class="spacer"></span>
+    {% if not expense %}<button class="btn btn-secondary" type="submit" name="action" value="another">Save &amp; add another</button>{% endif %}
+    <button class="btn btn-primary" type="submit">{% icon 'check' 16 %} Save</button>
+  </div>
+</form>
+{% endblock %}

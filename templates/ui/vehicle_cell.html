@@ -1,0 +1,7 @@
+<div class="vehicle-cell">
+  <span class="vtype"><span class="vt-ico" title="{{ v.get_vehicle_type_display }}">{% type_icon v.vehicle_type 17 %}</span></span>
+  <span style="min-width:0">
+    <a class="reg" href="{{ v.get_absolute_url }}">{{ v.registration_no }}</a>
+    <span class="sub" style="display:block">{{ sub|default:v.get_vehicle_type_display }}</span>
+  </span>
+</div>

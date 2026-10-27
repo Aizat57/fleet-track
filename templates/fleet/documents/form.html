@@ -1,0 +1,24 @@
+{% extends 'fleet/layout.html' %}
+{% block title %}{% if doc %}Edit Document{% else %}Upload Document{% endif %}{% endblock %}
+{% block page_title %}{% if doc %}Edit Document{% else %}Upload Document{% endif %}{% endblock %}
+{% block crumbs %}<li><a href="{% url 'fleet:document_list' %}">Documents</a></li><li aria-current="page">{% if doc %}Edit{% else %}Upload{% endif %}</li>{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>{% if doc %}Edit document details{% else %}Upload a document{% endif %}</h1>{% if doc %}<p class="lede">{{ doc.original_filename }} · {{ doc.size|filesize }}</p>{% endif %}</div></div>
+<form method="post" enctype="multipart/form-data" class="form-card" style="max-width:860px" novalidate>
+  {% csrf_token %}
+  <input type="hidden" name="next" value="{{ next }}">
+  <section class="form-section">
+    <div class="dropzone" data-max-mb="20">
+      <span class="dz-ico">{% icon 'upload' 22 %}</span>
+      <p><strong>{% if doc %}Replace file{% else %}Click to choose{% endif %}</strong> or drag a file here</p>
+      <input type="file" name="file" {% if not doc %}required{% endif %} aria-label="Choose file">
+    </div>
+    <div class="dz-list"></div>
+    {% if form.file.errors %}<p class="error-text" style="margin-top:8px">{% icon 'alert-circle' 14 %}{{ form.file.errors|join:' ' }}</p>{% endif %}
+    <div class="fields" style="margin-top:18px">
+      {% field form.name True %}{% field form.category %}{% field form.vehicle %}{% field form.driver %}{% field form.issue_date %}{% field form.expiry_date %}
+    </div>
+  </section>
+  <div class="form-actions"><a class="btn btn-secondary" href="{{ next|default:'/documents/' }}">Cancel</a><button class="btn btn-primary" type="submit">{% icon 'check' 16 %} Save</button></div>
+</form>
+{% endblock %}

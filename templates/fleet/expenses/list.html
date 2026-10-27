@@ -1,0 +1,113 @@
+{% extends 'fleet/layout.html' %}
+{% block title %}Expenses{% endblock %}
+{% block page_title %}Expenses{% endblock %}
+{% block crumbs %}<li aria-current="page">Expenses</li>{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Fleet Expenses</h1><p class="lede">Actual spend, outstanding payments and planned costs — {{ period_label|lower }}.</p></div>
+  <div class="actions">
+    {% include 'ui/period.html' with id='exp' %}
+    <a class="btn btn-secondary" href="{% qs export='xlsx' %}">{% icon 'download' 16 %} Export</a>
+    {% if perms.fleet.add_expense %}<a class="btn btn-primary" href="{% url 'fleet:expense_create' %}">{% icon 'plus' 16 %} Add Expense</a>{% endif %}
+  </div>
+</div>
+
+{% if not has_any %}
+<div class="card">
+  {% url 'fleet:expense_create' as add_url %}
+  {% include 'ui/empty.html' with ico='wallet' title='No expenses recorded yet' text='Record fuel, servicing, repairs, insurance, road tax and other costs per vehicle. Totals, trends and category breakdowns are calculated from these records.' action_url=add_url action_label='Add Expense' %}
+</div>
+{% else %}
+<div class="grid g-5">
+  <div class="card metric tone-blue"><div class="metric-top"><span class="metric-icon">{% icon 'wallet' 20 %}</span></div>
+    <div><div class="metric-value md">{{ summary.total|rm }}</div><div class="metric-label">Total Expenses</div><div class="metric-sub">{{ period_label }} · {{ summary.count }} item{{ summary.count|pluralize }}</div></div></div>
+  <a class="card metric tone-amber" href="{% qs category='repair' %}"><div class="metric-top"><span class="metric-icon">{% icon 'wrench' 20 %}</span></div>
+    <div><div class="metric-value md">{{ summary.maintenance|rm }}</div><div class="metric-label">Maintenance Costs</div><div class="metric-sub">Servicing, repairs, tyres</div></div></a>
+  <a class="card metric tone-navy" href="{% qs category='insurance' %}"><div class="metric-top"><span class="metric-icon">{% icon 'shield' 20 %}</span></div>
+    <div><div class="metric-value md">{{ summary.insurance|rm }}</div><div class="metric-label">Insurance Costs</div></div></a>
+  <a class="card metric tone-slate" href="{% qs category='road_tax' %}"><div class="metric-top"><span class="metric-icon">{% icon 'receipt' 20 %}</span></div>
+    <div><div class="metric-value md">{{ summary.road_tax|rm }}</div><div class="metric-label">Road Tax Costs</div></div></a>
+  <a class="card metric {% if summary.outstanding %}alert-card amber{% endif %} tone-amber" href="{% qs payment='outstanding' period='custom' start='2000-01-01' end=period_end|date:'Y-m-d' %}"><div class="metric-top"><span class="metric-icon">{% icon 'clock' 20 %}</span></div>
+    <div><div class="metric-value md">{{ summary.outstanding|rm }}</div><div class="metric-label">Outstanding Payments</div><div class="metric-sub">{{ summary.outstanding_count }} unpaid · all dates</div></div></a>
+</div>
+{% if summary.forecast %}
+<div class="missing-box" style="margin-top:var(--gap)"><span class="mb-text">{% icon 'calendar' 18 %} <span><strong style="color:var(--text)">{{ summary.forecast|rm }}</strong> in upcoming forecast costs (not included in totals above).</span></span>
+  <a class="btn btn-ghost btn-sm" href="{% qs payment='forecast' period='custom' start=period_end|date:'Y-m-d' end='2100-12-31' %}">View forecasts</a></div>
+{% endif %}
+
+<div class="grid g-main section">
+  <div class="card">
+    <div class="card-head"><div><h2>Monthly trend</h2><p>Actual spend, last 12 months{% if request.GET.vehicle or request.GET.category %} (filtered){% endif %}.</p></div></div>
+    {% if trend %}
+    {{ trend|json_script:'trend-data' }}
+    <div class="chart" data-chart="line" data-source="trend-data" data-height="240" data-label="Monthly expenses, last 12 months"><div class="skeleton" style="height:240px"></div></div>
+    <details class="chart-table"><summary>{% icon 'list' 14 %} View as table</summary>
+      <div class="table-wrap"><table class="table compact"><thead><tr><th>Month</th><th class="r">Actual spend</th></tr></thead>
+      <tbody>{% for m in trend %}<tr><td>{{ m.full }}</td><td class="num r">{{ m.value|rm }}</td></tr>{% endfor %}</tbody></table></div></details>
+    {% else %}
+    {% include 'ui/empty.html' with ico='chart' title='No spend in the last 12 months' small=True %}
+    {% endif %}
+  </div>
+  <div class="card">
+    <div class="card-head"><div><h2>By category</h2><p>{{ period_label }}</p></div></div>
+    {% if categories %}
+    <div class="bars">
+      {% for c in categories %}
+      <a class="bar-row" href="{% qs category=c.key %}" style="color:inherit" title="{{ c.label }}: {{ c.total|rm }} ({{ c.share|floatformat:1 }}%)">
+        <span class="bl">{{ c.label }}</span>
+        <span class="bar-track" aria-hidden="true"><span class="bar-fill" style="display:block;width:{{ c.share|floatformat:1 }}%"></span></span>
+        <span class="bv">{{ c.total|rm }}</span>
+      </a>
+      {% endfor %}
+    </div>
+    {% else %}
+    {% include 'ui/empty.html' with ico='chart' title='No spend in this period' small=True %}
+    {% endif %}
+  </div>
+</div>
+
+<section class="card flush table-card section" aria-label="Transactions">
+  <form method="get" data-autosubmit>
+    <div class="toolbar">
+      <input type="hidden" name="period" value="{{ period }}">{% if period == 'custom' %}<input type="hidden" name="start" value="{{ period_start|date:'Y-m-d' }}"><input type="hidden" name="end" value="{{ period_end|date:'Y-m-d' }}">{% endif %}
+      <div class="search">{% icon 'search' 16 %}<label class="sr-only" for="eq">Search expenses</label><input id="eq" type="search" name="q" value="{{ request.GET.q }}" placeholder="Description, supplier, invoice…"></div>
+      <label class="sr-only" for="ec">Category</label>
+      <select class="chip-select{% if request.GET.category %} is-set{% endif %}" id="ec" name="category" style="width:auto"><option value="">All categories</option>{% for k, l in category_choices %}<option value="{{ k }}"{% if request.GET.category == k %} selected{% endif %}>{{ l }}</option>{% endfor %}</select>
+      <label class="sr-only" for="ev">Vehicle</label>
+      <select class="chip-select{% if request.GET.vehicle %} is-set{% endif %}" id="ev" name="vehicle" style="width:auto"><option value="">All vehicles</option>{% for v in vehicles %}<option value="{{ v.pk }}"{% if request.GET.vehicle == v.pk|stringformat:'d' %} selected{% endif %}>{{ v.registration_no }}</option>{% endfor %}</select>
+      <label class="sr-only" for="ep">Payment status</label>
+      <select class="chip-select{% if request.GET.payment %} is-set{% endif %}" id="ep" name="payment" style="width:auto"><option value="">Any payment status</option>{% for k, l in payment_choices %}<option value="{{ k }}"{% if request.GET.payment == k %} selected{% endif %}>{{ l }}</option>{% endfor %}</select>
+      {% if request.GET.category or request.GET.vehicle or request.GET.payment or request.GET.q %}<a class="btn btn-ghost btn-sm" href="?period={{ period }}">Clear</a>{% endif %}
+    </div>
+  </form>
+  {% if page.object_list %}
+  <div class="table-wrap">
+    <table class="table stack">
+      <thead><tr><th>Date</th><th>Vehicle</th><th>Category</th><th>Description</th><th>Supplier</th><th class="r">Amount</th><th>Payment Status</th><th class="r"><span class="sr-only">Actions</span></th></tr></thead>
+      <tbody>
+      {% for e in page %}
+        <tr>
+          <td class="cell-main num nowrap" data-label="Date">{{ e.date|date:'d M Y' }}</td>
+          <td data-label="Vehicle"><a href="{{ e.vehicle.get_absolute_url }}?tab=expenses" class="reg" style="font-weight:600;color:var(--text)">{{ e.vehicle.registration_no }}</a></td>
+          <td data-label="Category">{{ e.get_category_display }}</td>
+          <td data-label="Description">{{ e.description }}{% if e.invoice_no %}<span class="small muted" style="display:block">Inv. {{ e.invoice_no }}</span>{% endif %}</td>
+          <td data-label="Supplier">{{ e.supplier|default:'—' }}</td>
+          <td data-label="Amount" class="num r" style="font-weight:600{% if e.payment_status == 'forecast' %};color:var(--text-2);font-style:italic{% endif %}">{{ e.amount|rm }}</td>
+          <td data-label="Payment">{% badge e.payment_status e.get_payment_status_display %}</td>
+          <td><div class="row-actions">
+            {% if perms.fleet.change_expense %}<a class="btn btn-ghost btn-xs btn-icon" href="{% url 'fleet:expense_edit' e.pk %}?next={{ request.get_full_path|urlencode }}" aria-label="Edit expense">{% icon 'edit' 15 %}</a>{% endif %}
+            {% if perms.fleet.delete_expense %}<form method="post" action="{% url 'fleet:expense_delete' e.pk %}" data-confirm="Delete this {{ e.get_category_display|lower }} expense of {{ e.amount|rm }}?">{% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}"><button class="btn btn-ghost btn-xs btn-icon" type="submit" aria-label="Delete expense">{% icon 'trash' 15 %}</button></form>{% endif %}
+          </div></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% include 'ui/pagination.html' %}
+  {% else %}
+  {% include 'ui/empty.html' with ico='search' title='No transactions in this view' text='Try another period or clear the filters.' small=True %}
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}
+{% block scripts %}<script src="{% static 'js/charts.js' %}" defer></script>{% endblock %}

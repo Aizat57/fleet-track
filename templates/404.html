@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block title %}Not found{% endblock %}
+{% block body %}
+<div style="min-height:100vh;display:grid;place-items:center;padding:24px">
+  <div class="card solid" style="max-width:460px;width:100%">
+    <div class="empty">
+      <span class="e-ico">{% icon 'search' 24 %}</span>
+      <h3>Page not found</h3>
+      <p>The record may have been removed, or the link is incorrect.</p>
+      <div class="actions"><a class="btn btn-primary btn-sm" href="/">Back to dashboard</a></div>
+    </div>
+  </div>
+</div>
+{% endblock %}

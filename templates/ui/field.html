@@ -1,0 +1,10 @@
+<div class="field{% if wide or f.widget_type == 'textarea' or f.widget_type == 'clearablefile' or f.widget_type == 'multiplefile' %} wide{% endif %}"{% if show_types %} data-show-types="{{ show_types }}"{% endif %}{% if show_ownership %} data-show-ownership="{{ show_ownership }}"{% endif %}>
+  {% if is_checkbox %}
+  <label class="check" for="{{ f.id_for_label }}">{{ f }}<span>{{ f.label }}</span></label>
+  {% else %}
+  <label for="{{ f.id_for_label }}">{{ f.label }}{% if f.field.required %}<span class="req" aria-hidden="true">*</span><span class="sr-only"> (required)</span>{% endif %}</label>
+  {{ f }}
+  {% endif %}
+  {% if f.errors %}<p class="error-text" id="{{ f.auto_id }}-error">{% icon 'alert-circle' 14 %}<span>{{ f.errors|join:' ' }}</span></p>
+  {% elif hint %}<p class="hint" id="{{ f.auto_id }}-help">{{ hint }}</p>{% endif %}
+</div>

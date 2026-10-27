@@ -1,0 +1,19 @@
+{% extends 'fleet/layout.html' %}
+{% block title %}Search{% endblock %}
+{% block page_title %}Search{% endblock %}
+{% block crumbs %}<li aria-current="page">Search</li>{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>{% if q %}Results for “{{ q }}”{% else %}Search{% endif %}</h1>{% if q %}<p class="lede">{{ total }} match{{ total|pluralize:'es' }}</p>{% endif %}</div></div>
+{% if not q or q|length < 2 %}
+<div class="card">{% include 'ui/empty.html' with ico='search' title='Search the whole fleet' text='Type at least two characters: a registration number, driver name, document or breakdown ID (e.g. BD-00012). Press / anywhere to jump to search.' %}</div>
+{% elif not total %}
+<div class="card">{% include 'ui/empty.html' with ico='search' title='No matches' text='Check the spelling or try part of the registration number.' %}</div>
+{% else %}
+<div class="grid g-2">
+  {% if results.vehicles %}<div class="card"><div class="card-head"><h2>Vehicles</h2></div><ul class="activity">{% for v in results.vehicles %}<li>{% include 'ui/vehicle_cell.html' with v=v sub=v.make_model %}<span style="margin-left:auto">{% badge v.status v.get_status_display %}</span></li>{% endfor %}</ul></div>{% endif %}
+  {% if results.drivers %}<div class="card"><div class="card-head"><h2>Drivers</h2></div><ul class="activity">{% for d in results.drivers %}<li><a class="vehicle-cell" href="{{ d.get_absolute_url }}" style="color:var(--text)"><span class="avatar sm">{{ d.initials }}</span><span><strong>{{ d.name }}</strong><span class="sub" style="display:block">{{ d.phone|default:d.staff_no }}</span></span></a></li>{% endfor %}</ul></div>{% endif %}
+  {% if results.breakdowns %}<div class="card"><div class="card-head"><h2>Breakdowns</h2></div><ul class="activity">{% for b in results.breakdowns %}<li><span class="a-ico">{% icon 'wrench' 15 %}</span><div><a class="a-msg" href="{{ b.get_absolute_url }}">{{ b.code }} · {{ b.problem }}</a><div class="a-meta">{{ b.vehicle.registration_no }} · {{ b.reported_on|date:'d M Y' }} · {{ b.get_status_display }}</div></div></li>{% endfor %}</ul></div>{% endif %}
+  {% if results.documents %}<div class="card"><div class="card-head"><h2>Documents</h2></div><ul class="activity">{% for d in results.documents %}<li><span class="a-ico">{% icon 'file' 15 %}</span><div><a class="a-msg" href="{% url 'fleet:document_file' d.pk %}"{% if d.previewable %} data-preview="{% url 'fleet:document_file' d.pk %}?inline=1" data-download="{% url 'fleet:document_file' d.pk %}" data-kind="{% if d.is_image %}image{% else %}pdf{% endif %}" data-name="{{ d.name }}"{% endif %}>{{ d.name }}</a><div class="a-meta">{{ d.get_category_display }}{% if d.vehicle %} · {{ d.vehicle.registration_no }}{% endif %}</div></div></li>{% endfor %}</ul></div>{% endif %}
+</div>
+{% endif %}
+{% endblock %}

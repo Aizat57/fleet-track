@@ -1,0 +1,115 @@
+{% extends 'fleet/layout.html' %}
+{% block title %}Maintenance & Repairs{% endblock %}
+{% block page_title %}Maintenance &amp; Repairs{% endblock %}
+{% block crumbs %}<li aria-current="page">Maintenance &amp; Repairs</li>{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Maintenance &amp; Repairs</h1><p class="lede">Breakdowns, workshop progress and scheduled servicing.</p></div>
+  <div class="actions">
+    <a class="btn btn-secondary" href="{% qs export='xlsx' %}">{% icon 'download' 16 %} Export</a>
+    {% if perms.fleet.add_servicetask %}<button class="btn btn-secondary" type="button" data-open="task-dialog">{% icon 'calendar' 16 %} Schedule Service</button>{% endif %}
+    {% if perms.fleet.add_breakdown %}<a class="btn btn-primary" href="{% url 'fleet:breakdown_create' %}">{% icon 'alert' 16 %} Report Breakdown</a>{% endif %}
+  </div>
+</div>
+
+<div class="grid g-5">
+  <a class="card metric tone-blue" href="?state=open"><div class="metric-top"><span class="metric-icon">{% icon 'wrench' 20 %}</span><span class="go">{% icon 'chevron-right' 18 %}</span></div>
+    <div><div class="metric-value">{{ summary.open }}</div><div class="metric-label">Open Breakdowns</div></div></a>
+  <a class="card metric {% if summary.critical %}alert-card red{% endif %} tone-red" href="?state=open&severity=critical"><div class="metric-top"><span class="metric-icon">{% icon 'alert' 20 %}</span><span class="go">{% icon 'chevron-right' 18 %}</span></div>
+    <div><div class="metric-value">{{ summary.critical }}</div><div class="metric-label">Critical Incidents</div></div></a>
+  <a class="card metric tone-amber" href="{% url 'fleet:vehicle_list' %}?status=maintenance"><div class="metric-top"><span class="metric-icon">{% icon 'car' 20 %}</span><span class="go">{% icon 'chevron-right' 18 %}</span></div>
+    <div><div class="metric-value">{{ summary.under_repair }}</div><div class="metric-label">Vehicles Under Repair</div></div></a>
+  <a class="card metric {% if summary.overdue %}alert-card amber{% endif %} tone-amber" href="#service"><div class="metric-top"><span class="metric-icon">{% icon 'clock' 20 %}</span><span class="go">{% icon 'chevron-right' 18 %}</span></div>
+    <div><div class="metric-value">{{ summary.overdue }}</div><div class="metric-label">Overdue Maintenance</div></div></a>
+  <a class="card metric tone-navy" href="{% url 'fleet:expense_list' %}?category=repair"><div class="metric-top"><span class="metric-icon">{% icon 'wallet' 20 %}</span><span class="go">{% icon 'chevron-right' 18 %}</span></div>
+    <div>{% if summary.repair_cost_known %}<div class="metric-value md">{{ summary.repair_cost|rm }}</div>{% else %}<div class="metric-value md not-recorded">None yet</div>{% endif %}<div class="metric-label">Repair Costs This Month</div></div></a>
+</div>
+
+<section class="card flush table-card section" aria-label="Breakdowns">
+  <div class="toolbar">
+    <div class="segmented" role="group" aria-label="Breakdown status">
+      <a href="{% qs state='open' %}" aria-current="{% if state == 'open' %}true{% else %}false{% endif %}">Open</a>
+      <a href="{% qs state='closed' %}" aria-current="{% if state == 'closed' %}true{% else %}false{% endif %}">Closed</a>
+      <a href="{% qs state='all' %}" aria-current="{% if state == 'all' %}true{% else %}false{% endif %}">All</a>
+    </div>
+    <form method="get" data-autosubmit class="actions">
+      <input type="hidden" name="state" value="{{ state }}">
+      <label class="sr-only" for="sev">Severity</label>
+      <select class="chip-select{% if request.GET.severity %} is-set{% endif %}" id="sev" name="severity" style="width:auto"><option value="">All severities</option>{% for k, l in severities %}<option value="{{ k }}"{% if request.GET.severity == k %} selected{% endif %}>{{ l }}</option>{% endfor %}</select>
+      <div class="search" style="width:240px">{% icon 'search' 16 %}<label class="sr-only" for="bq">Search</label><input id="bq" type="search" name="q" value="{{ request.GET.q }}" placeholder="Vehicle, problem, workshop…"></div>
+    </form>
+  </div>
+  {% if page.object_list %}
+  <div class="table-wrap">
+    <table class="table stack">
+      <thead><tr><th>Breakdown ID</th><th>Vehicle</th><th>Date Reported</th><th>Problem</th><th>Severity</th><th>Workshop</th><th class="r">Estimated Cost</th><th>Status</th><th class="r"><span class="sr-only">Actions</span></th></tr></thead>
+      <tbody>
+        {% for b in page %}
+        <tr class="{% if b.is_open and b.severity == 'critical' %}is-expired{% elif b.is_open and b.severity == 'high' %}is-warning{% endif %}">
+          <td class="cell-main" data-label="ID"><a class="reg" href="{{ b.get_absolute_url }}">{{ b.code }}</a></td>
+          <td data-label="Vehicle">{% include 'ui/vehicle_cell.html' with v=b.vehicle sub=b.vehicle.make_model %}</td>
+          <td data-label="Reported" class="num nowrap">{{ b.reported_on|date:'d M Y' }}</td>
+          <td data-label="Problem">{{ b.problem }}</td>
+          <td data-label="Severity">{% badge b.severity b.get_severity_display %}</td>
+          <td data-label="Workshop">{{ b.workshop|default:'<span class="subtle">Not assigned</span>' }}</td>
+          <td data-label="Estimate" class="num r">{{ b.estimated_cost|rm:'<span class="subtle">Not quoted</span>' }}</td>
+          <td data-label="Status">{% badge b.status b.get_status_display %}</td>
+          <td><div class="row-actions"><a class="btn btn-ghost btn-xs" href="{{ b.get_absolute_url }}">Open</a></div></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% include 'ui/pagination.html' %}
+  {% elif has_any %}
+  {% include 'ui/empty.html' with ico='check-circle' title='No breakdowns in this view' text='Nothing matches the current filter.' small=True %}
+  {% else %}
+  {% url 'fleet:breakdown_create' as add_url %}
+  {% include 'ui/empty.html' with ico='wrench' title='No breakdowns reported' text='When a vehicle breaks down, report it here to track diagnosis, quotation, approval and repair through to completion.' action_url=add_url action_label='Report Breakdown' %}
+  {% endif %}
+</section>
+
+<section class="section grid g-main" id="service">
+  <div class="card flush table-card">
+    <div class="card-head"><div><h2>Scheduled maintenance</h2><p>Open service tasks, overdue first.</p></div></div>
+    {% if tasks %}
+    <div class="table-wrap" style="margin-top:14px"><table class="table stack compact">
+      <thead><tr><th>Vehicle</th><th>Task</th><th>Due</th><th>Status</th><th class="r"><span class="sr-only">Actions</span></th></tr></thead>
+      <tbody>{% for t in tasks %}
+        <tr class="{% if t.is_overdue %}is-expired{% endif %}">
+          <td class="cell-main" data-label="Vehicle">{% include 'ui/vehicle_cell.html' with v=t.vehicle %}</td>
+          <td data-label="Task"><strong>{{ t.title }}</strong>{% if t.workshop %}<span class="sub small muted" style="display:block">{{ t.workshop }}</span>{% endif %}</td>
+          <td data-label="Due" class="num nowrap">{{ t.due_date|date:'d M Y' }}<span class="small muted" style="display:block">{{ t.due_date|days_until|days_label }}</span></td>
+          <td data-label="Status">{% if t.is_overdue %}{% badge 'expired' 'Overdue' %}{% else %}{% badge 'pending' 'Scheduled' %}{% endif %}</td>
+          <td class="r">{% if perms.fleet.change_servicetask %}<form method="post" action="{% url 'fleet:task_complete' t.pk %}">{% csrf_token %}<input type="hidden" name="next" value="{% url 'fleet:maintenance' %}#service"><button class="btn btn-soft btn-xs" type="submit">{% icon 'check' 14 %} Mark done</button></form>{% endif %}</td>
+        </tr>{% endfor %}</tbody></table></div>
+    {% else %}
+    {% include 'ui/empty.html' with ico='calendar' title='No open service tasks' text='Schedule servicing, PUSPAKOM inspections or tyre changes. Overdue tasks are flagged on the dashboard.' small=True %}
+    {% endif %}
+  </div>
+  <div class="card">
+    <div class="card-head"><div><h2>Recently completed</h2></div></div>
+    {% if recent_done %}
+    <ul class="activity">{% for t in recent_done %}
+      <li><span class="a-ico" style="background:var(--success-bg);color:var(--success)">{% icon 'check' 15 %}</span>
+        <div><a class="a-msg" href="{{ t.vehicle.get_absolute_url }}?tab=maintenance">{{ t.title }} · {{ t.vehicle.registration_no }}</a><div class="a-meta">Done {{ t.completed_on|date:'d M Y' }}</div></div></li>
+    {% endfor %}</ul>
+    {% else %}<p class="muted small">Completed service tasks will appear here.</p>{% endif %}
+  </div>
+</section>
+{% endblock %}
+
+{% block modals %}
+{% if perms.fleet.add_servicetask %}
+<dialog class="modal" id="task-dialog" aria-labelledby="task-title">
+  <form method="post" action="{% url 'fleet:task_create' %}">{% csrf_token %}
+    <input type="hidden" name="next" value="{% url 'fleet:maintenance' %}#service">
+    <div class="modal-head"><div><h2 id="task-title">Schedule maintenance</h2><p>Planned work that should happen by a due date.</p></div><button class="icon-btn" type="button" data-close aria-label="Close">{% icon 'x' 18 %}</button></div>
+    <div class="modal-body"><div class="fields">
+      {% field task_form.vehicle True %}{% field task_form.title True %}{% field task_form.due_date %}{% field task_form.due_odometer_km %}{% field task_form.workshop True %}{% field task_form.notes %}
+    </div></div>
+    <div class="modal-foot"><button class="btn btn-secondary" type="button" data-close>Cancel</button><button class="btn btn-primary" type="submit">Schedule</button></div>
+  </form>
+</dialog>
+{% endif %}
+{% endblock %}

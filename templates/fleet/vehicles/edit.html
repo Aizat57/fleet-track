@@ -1,0 +1,23 @@
+{% extends 'fleet/layout.html' %}
+{% block title %}Edit {{ vehicle }}{% endblock %}
+{% block page_title %}Edit {{ vehicle.registration_no }}{% endblock %}
+{% block crumbs %}<li><a href="{% url 'fleet:vehicle_list' %}">Vehicles</a></li><li><a href="{{ vehicle.get_absolute_url }}">{{ vehicle.registration_no }}</a></li><li aria-current="page">Edit</li>{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Edit {{ vehicle.registration_no }}</h1><p class="lede">Insurance, road tax and drivers are managed from their tabs on the vehicle profile.</p></div>
+</div>
+<form method="post" enctype="multipart/form-data" class="form-card" data-vehicle-form novalidate>
+  {% csrf_token %}
+  {% if form.errors %}<div class="form-errors" style="margin:var(--pad) var(--pad) 0" role="alert">{% icon 'alert-circle' 16 %}<span>Please correct the highlighted fields.</span></div>{% endif %}
+  {% for title, fields in sections %}
+  <section class="form-section">
+    <div class="form-section-head"><h2>{{ title }}</h2>{% if title == 'Operational Information' %}<p>Set status to Archived, Sold or Disposed to remove a vehicle from the operating fleet; its history is kept.</p>{% endif %}</div>
+    <div class="fields">{% for f in fields %}{% field f %}{% endfor %}</div>
+  </section>
+  {% endfor %}
+  <div class="form-actions">
+    <a class="btn btn-secondary" href="{{ vehicle.get_absolute_url }}">Cancel</a>
+    <button class="btn btn-primary" type="submit">{% icon 'check' 16 %} Save changes</button>
+  </div>
+</form>
+{% endblock %}

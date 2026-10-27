@@ -1,0 +1,38 @@
+<tr>
+  <td class="cell-main" data-label="Document">
+    <div class="vehicle-cell">
+      {% with ext=d.extension %}<span class="file-ico{% if ext == '.pdf' %} pdf{% elif d.is_image %} img{% elif ext == '.xlsx' or ext == '.xls' %} xls{% endif %}" aria-hidden="true">{{ ext|slice:'1:'|upper|slice:':4' }}</span>{% endwith %}
+      <span style="min-width:0">
+        {% if d.previewable %}<a class="reg" href="{% url 'fleet:document_file' d.pk %}" data-preview="{% url 'fleet:document_file' d.pk %}?inline=1" data-download="{% url 'fleet:document_file' d.pk %}" data-kind="{% if d.is_image %}image{% else %}pdf{% endif %}" data-name="{{ d.name }}">{{ d.name }}</a>
+        {% else %}<a class="reg" href="{% url 'fleet:document_file' d.pk %}">{{ d.name }}</a>{% endif %}
+        <span class="sub" style="display:block">{{ d.original_filename|truncatechars:40 }} · {{ d.size|filesize }}</span>
+      </span>
+    </div>
+  </td>
+  <td data-label="Category">{{ d.get_category_display }}</td>
+  {% if not hide_vehicle %}<td data-label="Linked to">{% if d.vehicle %}<a href="{{ d.vehicle.get_absolute_url }}?tab=documents">{{ d.vehicle.registration_no }}</a>{% elif d.driver %}<a href="{{ d.driver.get_absolute_url }}">{{ d.driver }}</a>{% else %}<span class="subtle">—</span>{% endif %}{% if d.breakdown %}<span class="sub" style="display:block"><a href="{{ d.breakdown.get_absolute_url }}">{{ d.breakdown.code }}</a></span>{% endif %}</td>{% endif %}
+  <td data-label="Issued" class="nowrap">{{ d.issue_date|date:'d M Y'|default:'—' }}</td>
+  <td data-label="Expiry" class="nowrap">{% if d.expiry_date %}{{ d.expiry_date|date:'d M Y' }}<span style="display:block;margin-top:3px">{% expiry_badge d.expiry_date %}</span>{% else %}<span class="subtle">No expiry</span>{% endif %}</td>
+  <td data-label="Uploaded by">{{ d.uploaded_by|display_name }}</td>
+  <td data-label="Updated" class="nowrap">{{ d.updated_at|date:'d M Y' }}</td>
+  <td>
+    <div class="row-actions">
+      {% if d.previewable %}<a class="btn btn-ghost btn-xs btn-icon" href="{% url 'fleet:document_file' d.pk %}?inline=1" data-preview="{% url 'fleet:document_file' d.pk %}?inline=1" data-download="{% url 'fleet:document_file' d.pk %}" data-kind="{% if d.is_image %}image{% else %}pdf{% endif %}" data-name="{{ d.name }}" aria-label="Preview {{ d.name }}">{% icon 'eye' 15 %}</a>{% endif %}
+      <a class="btn btn-ghost btn-xs btn-icon" href="{% url 'fleet:document_file' d.pk %}" aria-label="Download {{ d.name }}">{% icon 'download' 15 %}</a>
+      {% if perms.fleet.change_document or perms.fleet.delete_document %}
+      <div class="pop">
+        <button class="btn btn-ghost btn-xs btn-icon" type="button" data-pop-trigger aria-haspopup="menu" aria-expanded="false" aria-label="More actions for {{ d.name }}">{% icon 'more' 15 %}</button>
+        <div class="pop-panel" role="menu">
+          {% if perms.fleet.change_document %}<a class="menu-item" role="menuitem" href="{% url 'fleet:document_edit' d.pk %}?next={{ request.get_full_path|urlencode }}">{% icon 'edit' 15 %} Edit details</a>{% endif %}
+          {% if perms.fleet.delete_document %}
+          <form method="post" action="{% url 'fleet:document_delete' d.pk %}" data-confirm="Delete “{{ d.name }}”? The file will be permanently removed.">{% csrf_token %}
+            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+            <button class="menu-item danger" role="menuitem" type="submit">{% icon 'trash' 15 %} Delete</button>
+          </form>
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </td>
+</tr>

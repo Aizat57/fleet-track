@@ -1,0 +1,105 @@
+{% extends 'fleet/layout.html' %}
+{% block title %}{{ b.code }}{% endblock %}
+{% block page_title %}{{ b.code }} · {{ b.vehicle.registration_no }}{% endblock %}
+{% block crumbs %}<li><a href="{% url 'fleet:maintenance' %}">Maintenance</a></li><li aria-current="page">{{ b.code }}</li>{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <p class="eyebrow">{% icon 'wrench' 14 %} {{ b.code }} · reported {{ b.reported_on|date:'d M Y' }} by {{ b.reported_by|display_name }}</p>
+    <h1>{{ b.problem }}</h1>
+    <div class="actions" style="margin-top:10px;gap:8px">{% badge b.severity b.get_severity_display|add:' severity' %}{% badge b.status b.get_status_display %}
+      <a class="pill" href="{{ b.vehicle.get_absolute_url }}?tab=maintenance">{% type_icon b.vehicle.vehicle_type 14 %} {{ b.vehicle.registration_no }} · {{ b.vehicle.make_model }}</a></div>
+  </div>
+  <div class="actions">{% if perms.fleet.change_breakdown %}<a class="btn btn-secondary" href="{% url 'fleet:breakdown_edit' b.pk %}">{% icon 'edit' 16 %} Edit report</a>{% endif %}</div>
+</div>
+
+<div class="grid g-4">
+  <div class="card metric tone-blue"><div class="metric-top"><span class="metric-icon">{% icon 'map-pin' 20 %}</span></div><div><div class="metric-value md" style="font-size:16px">{{ b.workshop|default:'Not assigned' }}</div><div class="metric-label">Workshop</div></div></div>
+  <div class="card metric tone-amber"><div class="metric-top"><span class="metric-icon">{% icon 'receipt' 20 %}</span></div><div><div class="metric-value md">{{ b.estimated_cost|rm:'<span class="not-recorded">Not quoted</span>' }}</div><div class="metric-label">Estimated Cost</div></div></div>
+  <div class="card metric tone-navy"><div class="metric-top"><span class="metric-icon">{% icon 'wallet' 20 %}</span></div><div><div class="metric-value md">{{ b.actual_cost|rm:'<span class="not-recorded">Not final</span>' }}</div><div class="metric-label">Final Cost</div></div></div>
+  <div class="card metric tone-green"><div class="metric-top"><span class="metric-icon">{% icon 'clock' 20 %}</span></div><div><div class="metric-value md">{% if b.completed_on %}{{ b.reported_on|timesince:b.completed_on }}{% else %}{{ b.reported_on|timesince }}{% endif %}</div><div class="metric-label">{% if b.completed_on %}Time to repair{% else %}Open for{% endif %}</div></div></div>
+</div>
+
+<div class="section grid g-main">
+  <div style="display:grid;gap:var(--gap);align-content:start">
+    <div class="card">
+      <div class="card-head"><h2>Details</h2></div>
+      <dl class="dl">
+        <div><dt>Location</dt><dd>{{ b.location|default:'<span class="not-recorded">Not recorded</span>' }}</dd></div>
+        <div><dt>Reported</dt><dd>{{ b.reported_on|date:'d M Y' }}</dd></div>
+        <div><dt>Completed</dt><dd>{{ b.completed_on|date:'d M Y'|default:'<span class="not-recorded">Not yet</span>' }}</dd></div>
+        <div><dt>Vehicle status</dt><dd>{% badge b.vehicle.status b.vehicle.get_status_display %}</dd></div>
+      </dl>
+      {% if b.description %}<h3 style="margin-top:18px">Description</h3><p class="muted" style="margin-top:6px;white-space:pre-line">{{ b.description }}</p>{% endif %}
+      <h3 style="margin-top:18px">Diagnosis</h3>
+      {% if b.diagnosis %}<p style="margin-top:6px;white-space:pre-line">{{ b.diagnosis }}</p>{% else %}<p class="not-recorded" style="margin-top:6px">No diagnosis recorded yet.</p>{% endif %}
+    </div>
+
+    <div class="card">
+      <div class="card-head"><div><h2>Photos</h2></div></div>
+      {% if photos %}
+      <div class="gallery">{% for p in photos %}<button type="button" data-preview="{% url 'fleet:document_file' p.pk %}?inline=1" data-download="{% url 'fleet:document_file' p.pk %}" data-kind="image" data-name="{{ p.name }}" aria-label="View photo {{ p.name }}"><img src="{% url 'fleet:document_file' p.pk %}?inline=1" alt="" loading="lazy"></button>{% endfor %}</div>
+      {% else %}<p class="muted small">No photos attached.</p>{% endif %}
+    </div>
+
+    <div class="card flush table-card">
+      <div class="card-head"><div><h2>Quotation, invoice &amp; files</h2></div></div>
+      {% if files %}
+      <div class="table-wrap" style="margin-top:14px"><table class="table stack compact">
+        <thead><tr><th>Document</th><th>Category</th><th>Issued</th><th>Expiry</th><th>Uploaded by</th><th>Updated</th><th class="r"><span class="sr-only">Actions</span></th></tr></thead>
+        <tbody>{% for d in files %}{% include 'ui/doc_row.html' with d=d hide_vehicle=True %}{% endfor %}</tbody></table></div>
+      {% else %}<p class="muted small" style="padding:14px var(--pad) var(--pad)">No quotation or invoice uploaded.</p>{% endif %}
+      {% if perms.fleet.add_document %}
+      <form method="post" enctype="multipart/form-data" action="{% url 'fleet:breakdown_upload' b.pk %}" class="inline-form" style="padding:14px var(--pad);border-top:1px solid var(--line)">{% csrf_token %}
+        <div class="field"><label for="up-cat">Type</label><select class="select" id="up-cat" name="category">{% for k, l in doc_categories %}<option value="{{ k }}">{{ l }}</option>{% endfor %}</select></div>
+        <div class="field" style="flex:2"><label for="up-files">Files</label><input class="file-input" id="up-files" type="file" name="files" multiple required></div>
+        <button class="btn btn-secondary" type="submit">{% icon 'upload' 16 %} Upload</button>
+      </form>
+      {% endif %}
+    </div>
+
+    {% if expenses %}
+    <div class="card">
+      <div class="card-head"><h2>Linked expenses</h2></div>
+      <ul class="activity">{% for e in expenses %}<li><span class="a-ico">{% icon 'wallet' 15 %}</span><div style="flex:1"><span class="a-msg">{{ e.description }}</span><div class="a-meta">{{ e.date|date:'d M Y' }} · {{ e.supplier|default:'—' }}</div></div><div style="text-align:right"><strong class="num r">{{ e.amount|rm }}</strong><div>{% badge e.payment_status e.get_payment_status_display %}</div></div></li>{% endfor %}</ul>
+    </div>
+    {% endif %}
+  </div>
+
+  <div style="display:grid;gap:var(--gap);align-content:start">
+    {% if perms.fleet.change_breakdown %}
+    <form method="post" action="{% url 'fleet:breakdown_progress' b.pk %}" class="form-card" id="progress-form">
+      {% csrf_token %}
+      <div class="form-section">
+        <div class="form-section-head"><h2>Update progress</h2><p>Each update is added to the timeline.</p></div>
+        <div class="fields one">
+          {% field progress.status %}{% field progress.note %}
+          <details{% if not b.diagnosis and b.status != 'reported' %} open{% endif %}><summary class="link-btn" style="margin-bottom:12px">Diagnosis, workshop &amp; costs</summary>
+            <div class="fields one">{% field progress.diagnosis %}{% field progress.workshop %}{% field progress.estimated_cost %}{% field progress.actual_cost %}</div>
+          </details>
+          <div class="fields one" id="completion-opts">{% field progress.record_expense %}{% field progress.return_to_service %}</div>
+        </div>
+      </div>
+      <div class="form-actions"><button class="btn btn-primary" type="submit">{% icon 'check' 16 %} Add update</button></div>
+    </form>
+    {% endif %}
+    <div class="card">
+      <div class="card-head"><h2>Timeline</h2></div>
+      <ol class="timeline">
+        {% for u in updates reversed %}
+        <li>
+          <span class="tl-dot {{ u.status|tone }}" aria-hidden="true">{% if u.status == 'completed' %}{% icon 'check' 12 %}{% elif u.status == 'reported' %}{% icon 'alert' 12 %}{% else %}{% icon 'clock' 12 %}{% endif %}</span>
+          <div class="tl-title">{% badge u.status u.get_status_display %}</div>
+          <div class="tl-meta">{{ u.created_at|date:'d M Y, H:i' }} · {{ u.user|display_name }}</div>
+          {% if u.note %}<div class="tl-body">{{ u.note }}</div>{% endif %}
+        </li>
+        {% endfor %}
+      </ol>
+    </div>
+  </div>
+</div>
+<script>
+(function(){var s=document.getElementById('id_status'),o=document.getElementById('completion-opts');
+if(!s||!o)return;function t(){o.hidden=s.value!=='completed'}s.addEventListener('change',t);t();})();
+</script>
+{% endblock %}

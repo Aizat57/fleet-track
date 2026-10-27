@@ -1,0 +1,15 @@
+{% if items %}
+<ul class="activity">
+  {% for a in items %}
+  <li>
+    <span class="a-ico" aria-hidden="true">{% if 'breakdown' in a.verb %}{% icon 'wrench' 15 %}{% elif 'repair' in a.verb or 'service' in a.verb %}{% icon 'check' 15 %}{% elif 'insurance' in a.verb or 'road_tax' in a.verb or 'renewal' in a.verb %}{% icon 'shield' 15 %}{% elif 'driver' in a.verb %}{% icon 'user' 15 %}{% elif 'document' in a.verb %}{% icon 'file' 15 %}{% elif 'expense' in a.verb %}{% icon 'wallet' 15 %}{% elif 'vehicle' in a.verb %}{% icon 'car' 15 %}{% else %}{% icon 'activity' 15 %}{% endif %}</span>
+    <div style="min-width:0">
+      {% if a.url %}<a class="a-msg" href="{{ a.url }}">{{ a.message }}</a>{% else %}<span class="a-msg">{{ a.message }}</span>{% endif %}
+      <div class="a-meta"><time datetime="{{ a.created_at|date:'c' }}" title="{{ a.created_at|date:'d M Y, H:i' }}">{{ a.created_at|naturaltime }}</time> · {{ a.actor|display_name }}</div>
+    </div>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+{% include 'ui/empty.html' with ico='activity' title='No activity yet' text='Vehicle changes, renewals, breakdowns and uploads will be listed here.' small=True %}
+{% endif %}

@@ -1,0 +1,149 @@
+{% extends 'fleet/layout.html' %}
+{% block title %}Vehicles{% endblock %}
+{% block page_title %}Vehicles{% endblock %}
+{% block crumbs %}<li aria-current="page">Vehicles</li>{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Vehicle Management</h1>
+    <p class="lede">Manage your company's complete vehicle fleet.</p>
+  </div>
+  <div class="actions">
+    <div class="pop">
+      <button class="btn btn-secondary" type="button" data-pop-trigger aria-haspopup="menu" aria-expanded="false">{% icon 'download' 16 %} Export {% icon 'chevron-down' 14 %}</button>
+      <div class="pop-panel" role="menu">
+        <a class="menu-item" role="menuitem" href="{% qs export='xlsx' %}">Excel (.xlsx)</a>
+        <a class="menu-item" role="menuitem" href="{% qs export='csv' %}">CSV</a>
+      </div>
+    </div>
+    {% if perms.fleet.add_vehicle %}
+    <a class="btn btn-secondary" href="{% url 'fleet:vehicle_import' %}">{% icon 'import' 16 %} Import Vehicles</a>
+    <a class="btn btn-primary" href="{% url 'fleet:vehicle_create' %}">{% icon 'plus' 16 %} Add Vehicle</a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="grid g-4">
+  {% url 'fleet:vehicle_list' as vl %}
+  {% include 'ui/metric.html' with url=vl ico='car' tone='blue' value=summary.total label='Total Vehicles' %}
+  {% with u=vl|add:'?status=active' %}{% include 'ui/metric.html' with url=u ico='check-circle' tone='green' value=summary.active label='Active' %}{% endwith %}
+  {% with u=vl|add:'?status=maintenance' %}{% include 'ui/metric.html' with url=u ico='wrench' tone='amber' value=summary.maintenance label='Under Maintenance' %}{% endwith %}
+  {% with u=vl|add:'?expiring=1' %}{% include 'ui/metric.html' with url=u ico='shield' tone='red' value=summary.expiring label='Expiring Documents' sub='Insurance or road tax expired or due ≤ 30 days' %}{% endwith %}
+</div>
+
+{% if drafts %}
+<div class="card section" style="padding:14px 18px">
+  <div class="actions" style="justify-content:space-between">
+    <span class="muted">{% icon 'save' 16 %} <strong style="color:var(--text)">Unfinished vehicle drafts:</strong></span>
+    <div class="actions">
+      {% for d in drafts %}
+      <span class="pill">
+        <a href="{% url 'fleet:vehicle_create' %}?draft={{ d.pk }}">{{ d.label }}</a>
+        <span class="subtle">· {{ d.updated_at|naturaltime }}</span>
+        <form method="post" action="{% url 'fleet:draft_delete' d.pk %}" data-confirm="Discard this draft?" data-confirm-label="Discard" style="display:inline">{% csrf_token %}
+          <button class="link-btn" type="submit" aria-label="Discard draft {{ d.label }}" style="color:var(--text-3)">{% icon 'x' 13 %}</button>
+        </form>
+      </span>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<section class="card flush table-card section" aria-label="Vehicle register">
+  <form method="get" data-autosubmit>
+    <div class="toolbar">
+      <div class="search">
+        {% icon 'search' 16 %}
+        <label class="sr-only" for="vq">Search vehicles</label>
+        <input id="vq" type="search" name="q" value="{{ request.GET.q }}" placeholder="Registration, make, model, driver…">
+      </div>
+      <button class="btn btn-secondary btn-sm" type="button" data-toggle="vehicle-filters" aria-expanded="{% if active_filters %}true{% else %}false{% endif %}" aria-controls="vehicle-filters">
+        {% icon 'filter' 15 %} Filters {% if active_filters %}<span class="filter-count">{{ active_filters }}</span>{% endif %}
+      </button>
+      {% if active_filters or request.GET.q %}<a class="btn btn-ghost btn-sm" href="{% url 'fleet:vehicle_list' %}">Clear all</a>{% endif %}
+      <span class="grow"></span>
+      <span class="small muted"><span class="num r">{{ page.paginator.count }}</span> vehicle{{ page.paginator.count|pluralize }}</span>
+      <noscript><button class="btn btn-soft btn-sm">Apply</button></noscript>
+    </div>
+    <div class="filter-panel" id="vehicle-filters"{% if not active_filters %} hidden{% endif %}>
+      <div><label for="f-type">Vehicle Type</label>
+        <select class="chip-select{% if request.GET.type %} is-set{% endif %}" id="f-type" name="type"><option value="">All types</option>{% for group, options in type_groups %}<optgroup label="{{ group }}">{% for k, l in options %}<option value="{{ k }}"{% if request.GET.type == k %} selected{% endif %}>{{ l }}</option>{% endfor %}</optgroup>{% endfor %}</select></div>
+      <div><label for="f-status">Operational Status</label>
+        <select class="chip-select{% if request.GET.status %} is-set{% endif %}" id="f-status" name="status"><option value="">Operating fleet</option>{% for k, l in statuses %}<option value="{{ k }}"{% if request.GET.status == k %} selected{% endif %}>{{ l }}</option>{% endfor %}<option value="all"{% if request.GET.status == 'all' %} selected{% endif %}>All incl. archived</option></select></div>
+      <div><label for="f-own">Ownership Type</label>
+        <select class="chip-select{% if request.GET.ownership %} is-set{% endif %}" id="f-own" name="ownership"><option value="">All</option>{% for k, l in ownerships %}<option value="{{ k }}"{% if request.GET.ownership == k %} selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
+      <div><label for="f-ins">Insurance Status</label>
+        <select class="chip-select{% if request.GET.insurance %} is-set{% endif %}" id="f-ins" name="insurance"><option value="">Any</option>{% for k, l in expiry_filters %}<option value="{{ k }}"{% if request.GET.insurance == k %} selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
+      <div><label for="f-rt">Road Tax Status</label>
+        <select class="chip-select{% if request.GET.road_tax %} is-set{% endif %}" id="f-rt" name="road_tax"><option value="">Any</option>{% for k, l in expiry_filters %}<option value="{{ k }}"{% if request.GET.road_tax == k %} selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
+      <div><label for="f-dept">Department</label>
+        <select class="chip-select{% if request.GET.department %} is-set{% endif %}" id="f-dept" name="department"><option value="">All</option>{% for d in departments %}<option value="{{ d.pk }}"{% if request.GET.department == d.pk|stringformat:'d' %} selected{% endif %}>{{ d }}</option>{% endfor %}</select></div>
+      <div><label for="f-loc">Location</label>
+        <select class="chip-select{% if request.GET.location %} is-set{% endif %}" id="f-loc" name="location"><option value="">All</option>{% for l in locations %}<option value="{{ l.pk }}"{% if request.GET.location == l.pk|stringformat:'d' %} selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
+      {% if request.GET.expiring %}<input type="hidden" name="expiring" value="1">{% endif %}
+      {% if request.GET.sort %}<input type="hidden" name="sort" value="{{ request.GET.sort }}">{% endif %}
+    </div>
+  </form>
+
+  {% if page.object_list %}
+  <div class="table-wrap sticky">
+    <table class="table stack">
+      <thead>
+        <tr>
+          {% with s=sort %}
+          <th scope="col"{% if s == 'reg' or s == '-reg' %} aria-sort="{% if s == 'reg' %}ascending{% else %}descending{% endif %}"{% endif %}><a href="{% if s == 'reg' %}{% qs sort='-reg' %}{% else %}{% qs sort='reg' %}{% endif %}">Registration No.</a></th>
+          <th scope="col"{% if s == 'type' or s == '-type' %} aria-sort="ascending"{% endif %}><a href="{% qs sort='type' %}">Vehicle Type</a></th>
+          <th scope="col"><a href="{% qs sort='make' %}">Make / Model</a></th>
+          <th scope="col">Assigned Driver</th>
+          <th scope="col"><a href="{% qs sort='status' %}">Operational Status</a></th>
+          <th scope="col"{% if s == 'ins' %} aria-sort="ascending"{% endif %}><a href="{% qs sort='ins' %}">Insurance Expiry</a></th>
+          <th scope="col"{% if s == 'rt' %} aria-sort="ascending"{% endif %}><a href="{% qs sort='rt' %}">Road Tax Expiry</a></th>
+          <th scope="col" class="r"><span class="sr-only">Actions</span></th>
+          {% endwith %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for v in page %}
+        {% with ins=v.ins_expiry|expiry_state rt=v.rt_expiry|expiry_state %}
+        <tr class="{% if ins == 'expired' or rt == 'expired' %}is-expired{% elif ins == 'due_7' or ins == 'due_30' or rt == 'due_7' or rt == 'due_30' %}is-warning{% endif %}">
+          <td class="cell-main" data-label="Vehicle">{% include 'ui/vehicle_cell.html' with v=v sub=v.year|default_if_none:'' %}</td>
+          <td data-label="Type"><span class="vtype small">{{ v.get_vehicle_type_display }}</span></td>
+          <td data-label="Make / Model">{{ v.make_model }}</td>
+          <td data-label="Driver">{% with d=v.primary_driver %}{% if d %}<a href="{{ d.get_absolute_url }}" class="vehicle-cell" style="gap:8px;color:var(--text)"><span class="avatar sm">{{ d.initials }}</span>{{ d.name }}</a>{% elif not v.takes_driver %}<span class="subtle">Not applicable</span>{% else %}<span class="subtle">Unassigned</span>{% endif %}{% endwith %}</td>
+          <td data-label="Status">{% badge v.status v.get_status_display %}</td>
+          <td data-label="Insurance" class="nowrap num">{% if v.ins_expiry %}{{ v.ins_expiry|date:'d M Y' }}<span style="display:block;margin-top:3px">{% expiry_badge v.ins_expiry %}</span>{% elif v.requires_insurance %}{% expiry_badge None %}{% else %}<span class="badge badge-neutral" title="Not required for this vehicle type">N/A</span>{% endif %}</td>
+          <td data-label="Road Tax" class="nowrap num">{% if v.rt_expiry %}{{ v.rt_expiry|date:'d M Y' }}<span style="display:block;margin-top:3px">{% expiry_badge v.rt_expiry %}</span>{% elif v.requires_road_tax %}{% expiry_badge None %}{% else %}<span class="badge badge-neutral" title="Not required for this vehicle type">N/A</span>{% endif %}</td>
+          <td>
+            <div class="row-actions">
+              <a class="btn btn-ghost btn-xs" href="{{ v.get_absolute_url }}">View</a>
+              <div class="pop">
+                <button class="btn btn-ghost btn-xs btn-icon" type="button" data-pop-trigger aria-haspopup="menu" aria-expanded="false" aria-label="Actions for {{ v.registration_no }}">{% icon 'more' 15 %}</button>
+                <div class="pop-panel" role="menu">
+                  {% if perms.fleet.change_vehicle %}<a class="menu-item" role="menuitem" href="{% url 'fleet:vehicle_edit' v.pk %}">{% icon 'edit' 15 %} Edit vehicle</a>{% endif %}
+                  {% if perms.fleet.add_compliancerecord %}
+                  {% if v.requires_insurance %}<a class="menu-item" role="menuitem" href="{% url 'fleet:compliance_renew' v.pk 'insurance' %}">{% icon 'shield' 15 %} Renew insurance</a>{% endif %}
+                  {% if v.requires_road_tax %}<a class="menu-item" role="menuitem" href="{% url 'fleet:compliance_renew' v.pk 'road_tax' %}">{% icon 'receipt' 15 %} Renew road tax</a>{% endif %}
+                  {% endif %}
+                  {% if perms.fleet.add_breakdown %}<a class="menu-item" role="menuitem" href="{% url 'fleet:breakdown_create' %}?vehicle={{ v.pk }}">{% icon 'alert' 15 %} Record breakdown</a>{% endif %}
+                  {% if perms.fleet.add_expense %}<a class="menu-item" role="menuitem" href="{% url 'fleet:expense_create' %}?vehicle={{ v.pk }}&next={{ request.get_full_path|urlencode }}">{% icon 'wallet' 15 %} Add expense</a>{% endif %}
+                </div>
+              </div>
+            </div>
+          </td>
+        </tr>
+        {% endwith %}
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% include 'ui/pagination.html' %}
+  {% elif has_any %}
+  {% url 'fleet:vehicle_list' as clear_url %}
+  {% include 'ui/empty.html' with ico='search' title='No vehicles match these filters' text='Try a different search or clear the filters to see the whole fleet.' action2_url=clear_url action2_label='Clear filters' %}
+  {% else %}
+  {% url 'fleet:vehicle_create' as add_url %}{% url 'fleet:vehicle_import' as import_url %}
+  {% include 'ui/empty.html' with ico='car' title='No vehicles yet' text='Add vehicles one by one with the guided form, or import your existing register from Excel.' action_url=add_url action_label='Add Vehicle' action2_url=import_url action2_label='Import from Excel' %}
+  {% endif %}
+</section>
+{% endblock %}

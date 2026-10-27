@@ -1,0 +1,56 @@
+{% extends 'fleet/layout.html' %}
+{% block title %}Drivers{% endblock %}
+{% block page_title %}Drivers{% endblock %}
+{% block crumbs %}<li aria-current="page">Drivers</li>{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Drivers</h1><p class="lede">Licences, contact details and vehicle assignments.</p></div>
+  <div class="actions">
+    <a class="btn btn-secondary" href="{% qs export='xlsx' %}">{% icon 'download' 16 %} Export</a>
+    {% if perms.fleet.add_driver %}<a class="btn btn-primary" href="{% url 'fleet:driver_create' %}">{% icon 'plus' 16 %} Add Driver</a>{% endif %}
+  </div>
+</div>
+<div class="grid g-4">
+  <a class="card metric tone-blue" href="{% url 'fleet:driver_list' %}"><div class="metric-top"><span class="metric-icon">{% icon 'users' 20 %}</span></div><div><div class="metric-value">{{ counts.total }}</div><div class="metric-label">Registered Drivers</div></div></a>
+  <a class="card metric tone-green" href="?status=active"><div class="metric-top"><span class="metric-icon">{% icon 'check-circle' 20 %}</span></div><div><div class="metric-value">{{ counts.active }}</div><div class="metric-label">Active</div></div></a>
+  <div class="card metric tone-slate"><div class="metric-top"><span class="metric-icon">{% icon 'car' 20 %}</span></div><div><div class="metric-value">{{ counts.unassigned }}</div><div class="metric-label">Active, Without a Vehicle</div></div></div>
+  <a class="card metric {% if counts.licence_expiring %}alert-card amber{% endif %} tone-amber" href="?licence=expiring"><div class="metric-top"><span class="metric-icon">{% icon 'clock' 20 %}</span><span class="go">{% icon 'chevron-right' 18 %}</span></div><div><div class="metric-value">{{ counts.licence_expiring }}</div><div class="metric-label">Licences Expiring</div><div class="metric-sub">Expired or due within 60 days</div></div></a>
+</div>
+
+<section class="card flush table-card section">
+  <form method="get" data-autosubmit>
+    <div class="toolbar">
+      <div class="search">{% icon 'search' 16 %}<label class="sr-only" for="drq">Search drivers</label><input id="drq" type="search" name="q" value="{{ request.GET.q }}" placeholder="Name, staff no., phone, licence…"></div>
+      <label class="sr-only" for="drs">Status</label>
+      <select class="chip-select{% if request.GET.status %} is-set{% endif %}" id="drs" name="status" style="width:auto"><option value="">All statuses</option>{% for k, l in statuses %}<option value="{{ k }}"{% if request.GET.status == k %} selected{% endif %}>{{ l }}</option>{% endfor %}</select>
+      <label class="sr-only" for="drd">Department</label>
+      <select class="chip-select{% if request.GET.department %} is-set{% endif %}" id="drd" name="department" style="width:auto"><option value="">All departments</option>{% for d in departments %}<option value="{{ d.pk }}"{% if request.GET.department == d.pk|stringformat:'d' %} selected{% endif %}>{{ d }}</option>{% endfor %}</select>
+      <label class="sr-only" for="drl">Licence</label>
+      <select class="chip-select{% if request.GET.licence %} is-set{% endif %}" id="drl" name="licence" style="width:auto"><option value="">Any licence status</option><option value="expiring"{% if request.GET.licence == 'expiring' %} selected{% endif %}>Expiring ≤ 60 days / expired</option></select>
+    </div>
+  </form>
+  {% if page.object_list %}
+  <div class="table-wrap">
+    <table class="table stack">
+      <thead><tr><th>Driver</th><th>Contact</th><th>Department</th><th>Licence</th><th>Licence Expiry</th><th>Assigned Vehicles</th><th>Status</th></tr></thead>
+      <tbody>{% for d in page %}
+        <tr data-href="{{ d.get_absolute_url }}" style="cursor:pointer">
+          <td class="cell-main" data-label="Driver"><a class="vehicle-cell" href="{{ d.get_absolute_url }}" style="color:var(--text)"><span class="avatar">{{ d.initials }}</span><span><strong>{{ d.name }}</strong><span class="sub" style="display:block">{{ d.staff_no|default:'No staff no.' }}</span></span></a></td>
+          <td data-label="Contact">{{ d.phone|default:'—' }}{% if d.email %}<span class="small muted" style="display:block">{{ d.email }}</span>{% endif %}</td>
+          <td data-label="Department">{{ d.department|default:'—' }}</td>
+          <td data-label="Licence">{{ d.licence_classes|default:'—' }}{% if d.licence_no %}<span class="small muted" style="display:block">{{ d.licence_no }}</span>{% endif %}</td>
+          <td data-label="Licence expiry" class="nowrap">{% if d.licence_expiry %}{{ d.licence_expiry|date:'d M Y' }}<span style="display:block;margin-top:3px">{% expiry_badge d.licence_expiry %}</span>{% else %}<span class="subtle">Not recorded</span>{% endif %}</td>
+          <td data-label="Vehicles">{% for a in d.assignments.all %}{% if not a.end_date %}<a class="pill" href="{{ a.vehicle.get_absolute_url }}" style="margin:2px 4px 2px 0">{% type_icon a.vehicle.vehicle_type 13 %} {{ a.vehicle.registration_no }}</a>{% endif %}{% empty %}<span class="subtle">None</span>{% endfor %}{% if not d.vehicle_count and d.assignments.all %}<span class="subtle">None</span>{% endif %}</td>
+          <td data-label="Status">{% badge d.status d.get_status_display %}</td>
+        </tr>{% endfor %}</tbody>
+    </table>
+  </div>
+  {% include 'ui/pagination.html' %}
+  {% elif has_any %}
+  {% include 'ui/empty.html' with ico='search' title='No drivers match' small=True %}
+  {% else %}
+  {% url 'fleet:driver_create' as add_url %}
+  {% include 'ui/empty.html' with ico='users' title='No drivers yet' text='Register drivers with their licence details, then assign them to vehicles.' action_url=add_url action_label='Add Driver' %}
+  {% endif %}
+</section>
+{% endblock %}

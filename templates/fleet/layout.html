@@ -1,0 +1,127 @@
+{% extends 'base.html' %}
+{% block body %}
+<a class="skip-link" href="#main">Skip to content</a>
+<div class="shell">
+  <aside class="sidebar" id="sidebar" aria-label="Main navigation">
+    <a class="brand" href="{% url 'fleet:dashboard' %}">
+      <span class="brand-mark">{% icon 'truck' 20 %}</span>
+      <span><span class="brand-name">FleetTrack</span><span class="brand-tag" style="display:block">Manage Your Fleet. Stay Ahead.</span></span>
+    </a>
+    <nav class="nav">
+      <ul>
+        {% for item in nav_items %}
+        <li>
+          <a href="{{ item.url }}"{% if item.key == active_nav %} aria-current="page"{% endif %}>
+            {% icon item.icon 18 %}<span>{{ item.label }}</span>
+            {% if item.key == 'notifications' and unread_count %}<span class="count" aria-label="{{ unread_count }} unread">{{ unread_count }}</span>{% endif %}
+          </a>
+        </li>
+        {% if forloop.counter == 8 %}</ul><div class="nav-label">Account</div><ul>{% endif %}
+        {% endfor %}
+      </ul>
+    </nav>
+    <div class="sidebar-foot">
+      {% if alert_total %}
+      <a class="sidebar-card" href="{% url 'fleet:notifications' %}" style="display:block">
+        <strong>{{ alert_total }} renewal &amp; repair alert{{ alert_total|pluralize }}</strong>
+        {{ unread_count }} unread · expired and critical first.
+      </a>
+      {% else %}
+      <div class="sidebar-card"><strong>All clear</strong>No urgent compliance or repair items.</div>
+      {% endif %}
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <button class="icon-btn menu-toggle" id="menu-toggle" type="button" aria-controls="sidebar" aria-expanded="false" aria-label="Open navigation">{% icon 'menu' 20 %}</button>
+      <div class="topbar-title">
+        <nav aria-label="Breadcrumb">
+          <ol class="crumbs">
+            <li><a href="{% url 'fleet:dashboard' %}">FleetTrack</a></li>
+            {% block crumbs %}{% endblock %}
+          </ol>
+        </nav>
+        <div class="page">{% block page_title %}{% endblock %}</div>
+      </div>
+      <form class="search" id="global-search" action="{% url 'fleet:search' %}" role="search">
+        {% icon 'search' 16 %}
+        <label class="sr-only" for="q-global">Search vehicles, drivers, documents</label>
+        <input id="q-global" name="q" type="search" placeholder="Search registration, driver, document…" value="{{ request.GET.q|default:''|default_if_none:'' }}" autocomplete="off">
+        <input type="hidden" name="go" value="1">
+        <kbd aria-hidden="true">/</kbd>
+      </form>
+      <button class="icon-btn" id="search-toggle" type="button" aria-label="Search" style="display:none">{% icon 'search' 19 %}</button>
+
+      <div class="pop">
+        <button class="icon-btn" type="button" data-pop-trigger aria-haspopup="true" aria-expanded="false"
+                aria-label="Notifications{% if unread_count %}, {{ unread_count }} unread{% endif %}">
+          {% icon 'bell' 19 %}{% if unread_count %}<span class="dot" aria-hidden="true"></span>{% endif %}
+        </button>
+        <div class="pop-panel notif-panel" role="region" aria-label="Notifications">
+          <div class="notif-head">
+            <div><h3>Notifications</h3><p class="small muted">{{ unread_count }} unread · most urgent first</p></div>
+            {% if unread_count %}
+            <form method="post" action="{% url 'fleet:notifications_read' %}">{% csrf_token %}
+              <input type="hidden" name="all" value="1"><input type="hidden" name="next" value="{{ request.get_full_path }}">
+              <button class="link-btn" type="submit">Mark all read</button>
+            </form>
+            {% endif %}
+          </div>
+          <div class="notif-list">
+            {% for a in header_alerts %}
+            <a class="notif{% if not a.read %} unread{% endif %}" href="{{ a.action_url }}">
+              <span class="ni {{ a.tone }}">{% if a.category == 'breakdown' %}{% icon 'wrench' 16 %}{% elif a.category == 'maintenance' %}{% icon 'clock' 16 %}{% else %}{% icon 'shield' 16 %}{% endif %}</span>
+              <span>
+                <span class="nt">{{ a.vehicle.registration_no }} · {{ a.issue }}</span>
+                <span class="ns" style="display:block">{% if a.due_date %}{{ a.due_date|date:'d M Y' }} · {% endif %}{{ a.priority|title }} priority</span>
+              </span>
+            </a>
+            {% empty %}
+            <div class="empty sm"><span class="e-ico">{% icon 'check-circle' 22 %}</span><h3>You're all caught up</h3><p>No expired renewals, critical breakdowns or overdue maintenance.</p></div>
+            {% endfor %}
+          </div>
+          <a class="notif-foot" href="{% url 'fleet:notifications' %}">View all notifications</a>
+        </div>
+      </div>
+
+      <div class="pop">
+        <button class="user-btn" type="button" data-pop-trigger aria-haspopup="menu" aria-expanded="false" aria-label="Account menu">
+          <span class="avatar">{{ user|initials }}</span>
+          <span class="who">{{ user|display_name }}<small>{% if user.is_superuser %}Administrator{% else %}{{ user.groups.first.name|default:'Member' }}{% endif %}</small></span>
+          {% icon 'chevron-down' 15 'muted' %}
+        </button>
+        <div class="pop-panel" role="menu">
+          <a class="menu-item" role="menuitem" href="{% url 'fleet:settings' %}#profile">{% icon 'user' 16 %} Profile</a>
+          <a class="menu-item" role="menuitem" href="{% url 'fleet:settings' %}">{% icon 'settings' 16 %} Account settings</a>
+          {% if user.is_staff %}<a class="menu-item" role="menuitem" href="{% url 'admin:index' %}">{% icon 'users' 16 %} Users &amp; roles</a>{% endif %}
+          <div class="menu-sep"></div>
+          <form method="post" action="{% url 'logout' %}">{% csrf_token %}
+            <button class="menu-item danger" role="menuitem" type="submit">{% icon 'logout' 16 %} Sign out</button>
+          </form>
+        </div>
+      </div>
+    </header>
+
+    <main id="main" class="content" tabindex="-1">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</div>
+
+<dialog class="modal" id="confirm-dialog" aria-labelledby="confirm-title">
+  <div class="modal-head"><div><h2 id="confirm-title">Are you sure?</h2><p id="confirm-message"></p></div></div>
+  <div class="modal-foot" style="margin-top:20px">
+    <button class="btn btn-secondary" type="button" id="confirm-cancel" data-close>Cancel</button>
+    <button class="btn btn-danger" type="button" id="confirm-ok">Delete</button>
+  </div>
+</dialog>
+<dialog class="modal lg" id="preview-dialog" aria-labelledby="preview-title">
+  <div class="modal-head"><h2 id="preview-title">Preview</h2>
+    <div class="actions"><a class="btn btn-secondary btn-sm" id="preview-download" href="#">{% icon 'download' 15 %} Download</a>
+      <button class="icon-btn" type="button" data-close aria-label="Close">{% icon 'x' 18 %}</button></div></div>
+  <div class="modal-body"></div>
+</dialog>
+{% block modals %}{% endblock %}
+<style>@media (max-width:760px){#search-toggle{display:grid!important}}</style>
+{% endblock %}

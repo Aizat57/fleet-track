@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+{% block title %}Sign in{% endblock %}
+{% block body %}
+<div class="auth">
+  <section class="auth-art">
+    <div class="brand" style="padding:0">
+      <span class="brand-mark">{% icon 'truck' 20 %}</span>
+      <span class="brand-name">FleetTrack</span>
+    </div>
+    <div>
+      <h1>Manage your fleet.<br><span style="color:var(--blue)">Stay ahead.</span></h1>
+      <p class="lede">Vehicles, drivers, insurance and road tax renewals, breakdowns and costs in one calm, reliable workspace.</p>
+      <div class="grid g-2" style="max-width:520px;margin-top:32px">
+        <div class="card" style="padding:16px"><span class="metric-icon blue" style="margin-bottom:10px">{% icon 'shield' 18 %}</span><strong>Never miss a renewal</strong><p class="small muted">Expiry alerts 30 days ahead.</p></div>
+        <div class="card" style="padding:16px"><span class="metric-icon blue" style="margin-bottom:10px">{% icon 'wallet' 18 %}</span><strong>Know every ringgit</strong><p class="small muted">Costs per vehicle and category.</p></div>
+      </div>
+    </div>
+    <p class="small subtle">© FleetTrack</p>
+  </section>
+  <section class="auth-panel">
+    <div class="card auth-card solid">
+      <h2 style="font-size:22px">Sign in</h2>
+      <p class="muted" style="margin:4px 0 22px">Welcome back. Use your FleetTrack account.</p>
+      {% if form.non_field_errors %}
+      <div class="form-errors" role="alert">{% icon 'alert-circle' 16 %}<span>Your username and password didn't match. Please try again.</span></div>
+      {% endif %}
+      <form method="post" novalidate>
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ next }}">
+        <div class="fields one">
+          <div class="field">
+            <label for="id_username">Username</label>
+            <input class="input" type="text" name="username" id="id_username" autocomplete="username" autofocus required value="{{ form.username.value|default:'' }}">
+          </div>
+          <div class="field">
+            <label for="id_password">Password</label>
+            <input class="input" type="password" name="password" id="id_password" autocomplete="current-password" required>
+          </div>
+        </div>
+        <button class="btn btn-primary" type="submit" style="width:100%;margin-top:22px;height:44px">Sign in</button>
+      </form>
+    </div>
+  </section>
+</div>
+{% endblock %}

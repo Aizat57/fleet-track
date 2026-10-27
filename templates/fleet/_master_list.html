@@ -1,0 +1,21 @@
+<div class="card">
+  <div class="card-head"><div><h2>{{ title }}</h2><p>Used to filter vehicles{% if kind == 'department' %} and drivers{% endif %}.</p></div></div>
+  {% if items %}
+  <ul class="activity">
+    {% for it in items %}
+    <li style="align-items:center"><span class="a-ico">{% icon ico 15 %}</span><span style="flex:1">{{ it.name }}</span>
+      {% if perms.fleet.delete_department and perms.fleet.delete_location %}
+      <form method="post" action="{% url 'fleet:master_delete' kind it.pk %}" data-confirm="Remove {{ it.name }}? Vehicles using it will become unassigned." data-confirm-label="Remove">{% csrf_token %}
+        <button class="btn btn-ghost btn-xs btn-icon" type="submit" aria-label="Remove {{ it.name }}">{% icon 'trash' 14 %}</button></form>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}<p class="muted small">None added yet.</p>{% endif %}
+  {% if perms.fleet.add_department and perms.fleet.add_location %}
+  <form method="post" action="{% url 'fleet:master_add' kind %}" class="inline-form" style="margin-top:14px">{% csrf_token %}
+    <div class="field"><label class="sr-only" for="{{ form.name.id_for_label }}">New {{ kind }}</label>{{ form.name }}</div>
+    <button class="btn btn-secondary" type="submit">{% icon 'plus' 15 %} Add</button>
+  </form>
+  {% endif %}
+</div>

@@ -1,0 +1,56 @@
+{% extends 'fleet/layout.html' %}
+{% block title %}Reports{% endblock %}
+{% block page_title %}Reports{% endblock %}
+{% block crumbs %}<li{% if not result %} aria-current="page"{% endif %}><a href="{% url 'fleet:reports' %}">Reports</a></li>{% if result %}<li aria-current="page">{{ result.title }}</li>{% endif %}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>{% if result %}{{ result.title }}{% else %}Reports{% endif %}</h1><p class="lede">{% if result %}{{ result.desc }}{% else %}Generate, preview and export fleet reports from live records.{% endif %}</p></div>
+  {% if result %}
+  <div class="actions no-print">
+    {% if result.uses_period %}{% include 'ui/period.html' with id='rep' %}{% endif %}
+    <button class="btn btn-secondary" type="button" onclick="window.print()">{% icon 'file' 16 %} Print / PDF</button>
+    <a class="btn btn-secondary" href="{% qs export='csv' %}">CSV</a>
+    <a class="btn btn-primary" href="{% qs export='xlsx' %}">{% icon 'download' 16 %} Excel</a>
+  </div>
+  {% endif %}
+</div>
+
+{% if not result %}
+<div class="grid g-3">
+  {% for key, title, desc, ico, uses_period in reports %}
+  <a class="card link" href="?report={{ key }}">
+    <span class="metric-icon blue" style="margin-bottom:14px">{% icon ico 20 %}</span>
+    <h3>{{ title }}</h3>
+    <p class="muted small" style="margin-top:4px">{{ desc }}</p>
+    <p class="link-btn" style="margin-top:14px">Generate {% icon 'chevron-right' 14 %}</p>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<section class="card flush table-card">
+  <div class="toolbar" style="justify-content:space-between">
+    <span class="small muted">{% if result.uses_period %}{{ period_label }} · {{ period_start|date:'d M Y' }} – {{ period_end|date:'d M Y' }} · {% endif %}Generated {{ result.generated|date:'d M Y, H:i' }} by {{ user|display_name }}</span>
+    <span class="pill"><span class="num r">{{ result.rows|length }}</span> row{{ result.rows|length|pluralize }}</span>
+  </div>
+  {% if result.rows %}
+  <div class="table-wrap sticky">
+    <table class="table compact">
+      <thead><tr>{% for h in result.headers %}<th scope="col"{% if forloop.counter0 in result.money_cols %} class="r"{% endif %}>{{ h }}</th>{% endfor %}</tr></thead>
+      <tbody>
+        {% for row in result.rows %}<tr>{% for cell in row %}
+          {% if forloop.counter0 in result.money_cols %}<td class="num r">{{ cell|rm }}</td>
+          {% elif cell.year %}<td class="num nowrap">{{ cell|date:'d M Y' }}</td>
+          {% elif cell is None %}<td class="subtle">—</td>
+          {% else %}<td>{{ cell }}</td>{% endif %}
+        {% endfor %}</tr>{% endfor %}
+      </tbody>
+      {% if result.total is not None %}<tfoot><tr>{% for h in result.headers %}{% if forloop.first %}<td>Total</td>{% elif forloop.counter0 == result.total_col %}<td class="num r">{{ result.total|rm }}</td>{% else %}<td></td>{% endif %}{% endfor %}</tr></tfoot>{% endif %}
+    </table>
+  </div>
+  {% else %}
+  {% include 'ui/empty.html' with ico='chart' title='No data for this report' text='There are no matching records for the selected period yet.' small=True %}
+  {% endif %}
+</section>
+<p class="no-print" style="margin-top:16px"><a class="link-btn" href="{% url 'fleet:reports' %}">{% icon 'chevron-left' 14 %} All reports</a></p>
+{% endif %}
+{% endblock %}

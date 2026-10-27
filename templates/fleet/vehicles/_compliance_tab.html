@@ -1,0 +1,68 @@
+<div class="tab-panel" role="tabpanel" id="panel-{{ kind }}" aria-labelledby="tab-{{ kind }}" tabindex="0"{% if tab != kind %} hidden{% endif %}>
+  {% if current %}
+  <div class="grid g-side">
+    <div class="card">
+      <div class="card-head">
+        <div><h2>Current {{ kind_label|lower }}</h2><p>{% if current.days_remaining < 0 %}Expired {{ current.days_remaining|days_label }}{% else %}{{ current.days_remaining|days_label }} remaining{% endif %}</p></div>
+        {% expiry_badge current.expiry_date %}
+      </div>
+      <dl class="dl">
+        <div><dt>{% if kind == 'insurance' %}Insurer{% else %}Issued by{% endif %}</dt><dd>{{ current.provider|default:'<span class="not-recorded">Not recorded</span>' }}</dd></div>
+        <div><dt>Reference</dt><dd>{{ current.reference_no|default:'<span class="not-recorded">Not recorded</span>' }}</dd></div>
+        {% if kind == 'insurance' %}
+        <div><dt>Coverage</dt><dd>{{ current.coverage|default:'<span class="not-recorded">Not recorded</span>' }}</dd></div>
+        <div><dt>Sum insured</dt><dd class="num r">{{ current.sum_insured|rm:'<span class="not-recorded">Not recorded</span>' }}</dd></div>
+        {% endif %}
+        <div><dt>Start date</dt><dd class="num r">{{ current.start_date|date:'d M Y'|default:'<span class="not-recorded">Not recorded</span>' }}</dd></div>
+        <div><dt>Expiry date</dt><dd class="num r">{{ current.expiry_date|date:'d M Y' }}</dd></div>
+        <div><dt>Cost</dt><dd class="num r">{{ current.cost|rm:'<span class="not-recorded">Cost not recorded</span>' }}</dd></div>
+        <div><dt>Responsible</dt><dd>{{ current.responsible|display_name|default:'—' }}</dd></div>
+        <div><dt>Renewal workflow</dt><dd>{% if current.workflow %}{% badge current.workflow current.get_workflow_display %}{% else %}<span class="subtle">Not started</span>{% endif %}</dd></div>
+      </dl>
+    </div>
+    <div class="card">
+      <h3>Actions</h3>
+      <div style="display:grid;gap:10px;margin-top:14px">
+        {% if perms.fleet.add_compliancerecord %}<a class="btn btn-primary" href="{% url 'fleet:compliance_renew' vehicle.pk kind %}">{% icon 'refresh' 16 %} Record renewal</a>{% endif %}
+        {% if perms.fleet.change_compliancerecord %}
+        <a class="btn btn-secondary" href="{% url 'fleet:compliance_edit' current.pk %}">{% icon 'edit' 16 %} Edit current record</a>
+        <form method="post" action="{% url 'fleet:compliance_workflow' current.pk %}">{% csrf_token %}
+          <input type="hidden" name="next" value="{{ vehicle.get_absolute_url }}?tab={{ kind }}">
+          {% if current.workflow == 'in_progress' %}<input type="hidden" name="workflow" value=""><button class="btn btn-ghost" style="width:100%" type="submit">Clear “in progress”</button>
+          {% else %}<input type="hidden" name="workflow" value="in_progress"><button class="btn btn-soft" style="width:100%" type="submit">{% icon 'clock' 16 %} Mark renewal in progress</button>{% endif %}
+        </form>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div class="card">
+    <div class="missing-box">
+      {% if required %}
+      <span class="mb-text"><span class="metric-icon blue">{% icon ico 18 %}</span><span><strong style="color:var(--text);display:block">{{ kind_label }} details not recorded</strong>Add the current {{ kind_label|lower }} so FleetTrack can warn you before it expires.</span></span>
+      {% if perms.fleet.add_compliancerecord %}<a class="btn btn-primary btn-sm" href="{% url 'fleet:compliance_renew' vehicle.pk kind %}">{% icon 'plus' 15 %} Add {{ kind_label|lower }}</a>{% endif %}
+      {% else %}
+      <span class="mb-text"><span class="metric-icon" style="background:var(--neutral-bg);color:var(--neutral)">{% icon ico 18 %}</span><span><strong style="color:var(--text);display:block">{{ kind_label }} not required</strong>{{ kind_label }} is not normally needed for a {{ vehicle.get_vehicle_type_display|lower }}, so it isn't tracked or flagged.</span></span>
+      {% if perms.fleet.add_compliancerecord %}<a class="btn btn-secondary btn-sm" href="{% url 'fleet:compliance_renew' vehicle.pk kind %}">{% icon 'plus' 15 %} Add anyway</a>{% endif %}
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if records|length > 1 or records and not current %}
+  <div class="card flush table-card" style="margin-top:var(--gap)">
+    <div class="card-head"><div><h2>{{ kind_label }} history</h2></div></div>
+    <div class="table-wrap" style="margin-top:14px"><table class="table stack compact">
+      <thead><tr><th>Period</th><th>Provider</th><th>Reference</th><th class="r">Cost</th><th>Status</th><th class="r"><span class="sr-only">Actions</span></th></tr></thead>
+      <tbody>{% for r in records %}
+        <tr>
+          <td class="cell-main num nowrap" data-label="Period">{{ r.start_date|date:'d M Y'|default:'?' }} – {{ r.expiry_date|date:'d M Y' }}</td>
+          <td data-label="Provider">{{ r.provider|default:'—' }}</td>
+          <td data-label="Reference">{{ r.reference_no|default:'—' }}</td>
+          <td data-label="Cost" class="num r">{{ r.cost|rm:'<span class="subtle">Not recorded</span>' }}</td>
+          <td data-label="Status">{% if r == current %}{% expiry_badge r.expiry_date %}{% else %}{% badge 'neutral' 'Superseded' 'neutral' %}{% endif %}</td>
+          <td class="r">{% if perms.fleet.change_compliancerecord %}<a class="btn btn-ghost btn-xs" href="{% url 'fleet:compliance_edit' r.pk %}">Edit</a>{% endif %}</td>
+        </tr>{% endfor %}</tbody></table></div>
+  </div>
+  {% endif %}
+</div>

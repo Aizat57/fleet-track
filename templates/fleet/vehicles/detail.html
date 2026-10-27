@@ -1,0 +1,291 @@
+{% extends 'fleet/layout.html' %}
+{% block title %}{{ vehicle }}{% endblock %}
+{% block page_title %}{{ vehicle.registration_no }}{% endblock %}
+{% block crumbs %}<li><a href="{% url 'fleet:vehicle_list' %}">Vehicles</a></li><li aria-current="page">{{ vehicle.registration_no }}</li>{% endblock %}
+{% block content %}
+
+<section class="card profile">
+  <div class="profile-media">
+    {% if vehicle.image %}<img src="{{ vehicle.image.url }}" alt="Photo of {{ vehicle.registration_no }}">
+    {% else %}<span class="vtype lg" aria-hidden="true"><span class="vt-ico" style="width:72px;height:72px">{% type_icon vehicle.vehicle_type 38 %}</span></span>{% endif %}
+    {% if perms.fleet.change_vehicle %}
+    <form class="change" method="post" enctype="multipart/form-data" action="{% url 'fleet:vehicle_photo' vehicle.pk %}">{% csrf_token %}
+      <label class="btn btn-secondary btn-xs" style="cursor:pointer">{% icon 'image' 14 %} {% if vehicle.image %}Change{% else %}Add photo{% endif %}
+        <input type="file" name="image" accept="image/*" class="sr-only" onchange="this.form.submit()"></label>
+    </form>
+    {% endif %}
+  </div>
+  <div style="min-width:0">
+    <div class="actions" style="gap:8px;margin-bottom:8px">{% badge vehicle.status vehicle.get_status_display %}<span class="pill">{% type_icon vehicle.vehicle_type 14 %} {{ vehicle.get_vehicle_type_display }}</span></div>
+    <h1>{{ vehicle.registration_no }}</h1>
+    <div class="meta">
+      <span>{{ vehicle.make_model }}{% if vehicle.year %} · {{ vehicle.year }}{% endif %}</span>
+      {% if vehicle.location %}<span>{% icon 'map-pin' 15 %} {{ vehicle.location }}</span>{% endif %}
+      {% if vehicle.department %}<span>{% icon 'users' 15 %} {{ vehicle.department }}</span>{% endif %}
+      {% if vehicle.odometer_km %}<span>{% icon 'activity' 15 %} <span class="num">{{ vehicle.odometer_km|intcomma }}</span> km</span>{% endif %}
+      {% if vehicle.engine_hours is not None %}<span>{% icon 'clock' 15 %} <span class="num">{{ vehicle.engine_hours|intcomma }}</span> h</span>{% endif %}
+    </div>
+  </div>
+  <div class="actions">
+    {% if perms.fleet.change_vehicle %}<a class="btn btn-secondary" href="{% url 'fleet:vehicle_edit' vehicle.pk %}">{% icon 'edit' 16 %} Edit Vehicle</a>{% endif %}
+    {% if perms.fleet.add_document %}<button class="btn btn-secondary" type="button" data-open="upload-dialog">{% icon 'upload' 16 %} Upload Document</button>{% endif %}
+    {% if perms.fleet.add_expense %}<a class="btn btn-secondary" href="{% url 'fleet:expense_create' %}?vehicle={{ vehicle.pk }}&next={{ vehicle.get_absolute_url|urlencode }}%3Ftab%3Dexpenses">{% icon 'wallet' 16 %} Add Expense</a>{% endif %}
+    {% if perms.fleet.add_breakdown %}<a class="btn btn-primary" href="{% url 'fleet:breakdown_create' %}?vehicle={{ vehicle.pk }}">{% icon 'alert' 16 %} Record Breakdown</a>{% endif %}
+  </div>
+</section>
+
+<div class="grid g-4 section" style="margin-top:var(--gap)">
+  {% with s=insurance.expiry_date|expiry_state %}
+  <a class="card metric alert-card {% if s == 'expired' %}red{% elif s == 'due_7' or s == 'due_30' %}amber{% elif s == 'valid' %}green{% else %}blue{% endif %} tone-{% if s == 'expired' %}red{% elif s == 'valid' %}green{% elif s == 'missing' %}slate{% else %}amber{% endif %}" href="?tab=insurance" data-goto-tab="insurance">
+    <div class="metric-top"><span class="metric-icon">{% icon 'shield' 20 %}</span>{% expiry_badge insurance.expiry_date %}</div>
+    <div>{% if insurance %}<div class="metric-value md num">{{ insurance.expiry_date|date:'d M Y' }}</div><div class="metric-label">Insurance Expiry</div><div class="metric-sub">{{ insurance.expiry_date|days_until|days_label }}{% if insurance.provider %} · {{ insurance.provider }}{% endif %}</div>
+    {% elif not vehicle.requires_insurance %}<div class="metric-value md not-recorded">Not required</div><div class="metric-label">Insurance Expiry</div><div class="metric-sub">Not applicable to {{ vehicle.get_vehicle_type_display|lower }}</div>
+    {% else %}<div class="metric-value md not-recorded">Not recorded</div><div class="metric-label">Insurance Expiry</div>{% endif %}</div>
+  </a>
+  {% endwith %}
+  {% with s=road_tax.expiry_date|expiry_state %}
+  <a class="card metric alert-card {% if s == 'expired' %}red{% elif s == 'due_7' or s == 'due_30' %}amber{% elif s == 'valid' %}green{% else %}blue{% endif %} tone-{% if s == 'expired' %}red{% elif s == 'valid' %}green{% elif s == 'missing' %}slate{% else %}amber{% endif %}" href="?tab=road_tax" data-goto-tab="road_tax">
+    <div class="metric-top"><span class="metric-icon">{% icon 'receipt' 20 %}</span>{% expiry_badge road_tax.expiry_date %}</div>
+    <div>{% if road_tax %}<div class="metric-value md num">{{ road_tax.expiry_date|date:'d M Y' }}</div><div class="metric-label">Road Tax Expiry</div><div class="metric-sub">{{ road_tax.expiry_date|days_until|days_label }}</div>
+    {% elif not vehicle.requires_road_tax %}<div class="metric-value md not-recorded">Not required</div><div class="metric-label">Road Tax Expiry</div><div class="metric-sub">Not applicable to {{ vehicle.get_vehicle_type_display|lower }}</div>
+    {% else %}<div class="metric-value md not-recorded">Not recorded</div><div class="metric-label">Road Tax Expiry</div>{% endif %}</div>
+  </a>
+  {% endwith %}
+  <a class="card metric tone-blue" href="?tab=drivers" data-goto-tab="drivers">
+    <div class="metric-top"><span class="metric-icon">{% icon 'users' 20 %}</span><span class="go">{% icon 'chevron-right' 18 %}</span></div>
+    <div><div class="metric-value md">{% if vehicle.takes_driver %}{{ active_assignments|length }}{% else %}—{% endif %}</div><div class="metric-label">Assigned Drivers</div><div class="metric-sub">{% if not vehicle.takes_driver %}Not applicable to trailers{% elif vehicle.primary_driver %}Primary: {{ vehicle.primary_driver }}{% else %}No driver assigned{% endif %}</div></div>
+  </a>
+  <a class="card metric tone-navy" href="?tab=expenses" data-goto-tab="expenses">
+    <div class="metric-top"><span class="metric-icon">{% icon 'wallet' 20 %}</span><span class="go">{% icon 'chevron-right' 18 %}</span></div>
+    <div>{% if has_expenses %}<div class="metric-value md">{{ month_spend.total|rm }}</div><div class="metric-label">Expenses This Month</div><div class="metric-sub">Lifetime {{ lifetime_spend|rm }}</div>
+    {% else %}<div class="metric-value md not-recorded">No expenses</div><div class="metric-label">Monthly Expenses</div><div class="metric-sub">Nothing recorded for this vehicle yet</div>{% endif %}</div>
+  </a>
+</div>
+
+<div class="section">
+  <div class="tabs" role="tablist" aria-label="Vehicle sections" data-url-param="tab">
+    {% for key, label in tabs %}
+    <button class="tab" role="tab" type="button" id="tab-{{ key }}" data-key="{{ key }}" aria-controls="panel-{{ key }}" aria-selected="{% if key == tab %}true{% else %}false{% endif %}" tabindex="{% if key == tab %}0{% else %}-1{% endif %}">
+      {{ label }}
+      {% if key == 'documents' %}<span class="n">{{ documents|length }}</span>{% elif key == 'expenses' and expense_count %}<span class="n">{{ expense_count }}</span>{% elif key == 'maintenance' and breakdowns %}<span class="n">{{ breakdowns|length }}</span>{% endif %}
+    </button>
+    {% endfor %}
+  </div>
+
+  <!-- Overview -->
+  <div class="tab-panel" role="tabpanel" id="panel-overview" aria-labelledby="tab-overview" tabindex="0"{% if tab != 'overview' %} hidden{% endif %}>
+    <div class="grid g-main">
+      <div class="card">
+        <div class="card-head"><h2>Vehicle details</h2></div>
+        <dl class="dl">
+          <div><dt>Registration No.</dt><dd>{{ vehicle.registration_no }}</dd></div>
+          <div><dt>Vehicle type</dt><dd>{{ vehicle.get_vehicle_type_display }}</dd></div>
+          <div><dt>Make / Model</dt><dd>{{ vehicle.make_model }}</dd></div>
+          <div><dt>Year</dt><dd>{{ vehicle.year|default:'<span class="not-recorded">Not recorded</span>' }}</dd></div>
+          <div><dt>Colour</dt><dd>{{ vehicle.colour|default:'<span class="not-recorded">Not recorded</span>' }}</dd></div>
+          <div><dt>Chassis No.</dt><dd>{{ vehicle.chassis_no|default:'<span class="not-recorded">Not recorded</span>' }}</dd></div>
+          {% if vehicle.is_motorised %}
+          <div><dt>Engine No.</dt><dd>{{ vehicle.engine_no|default:'<span class="not-recorded">Not recorded</span>' }}</dd></div>
+          <div><dt>Fuel</dt><dd>{{ vehicle.get_fuel_type_display|default:'<span class="not-recorded">Not recorded</span>' }}</dd></div>
+          {% if vehicle.vehicle_type in odometer_types %}<div><dt>Odometer</dt><dd class="num">{% if vehicle.odometer_km %}{{ vehicle.odometer_km|intcomma }} km{% else %}<span class="not-recorded">Not recorded</span>{% endif %}</dd></div>{% endif %}
+          {% if vehicle.vehicle_type in hours_types %}<div><dt>Engine / flight hours</dt><dd class="num">{% if vehicle.engine_hours is not None %}{{ vehicle.engine_hours|intcomma }} h{% else %}<span class="not-recorded">Not recorded</span>{% endif %}</dd></div>{% endif %}
+          {% endif %}
+          {% if vehicle.seating_capacity %}<div><dt>Seating</dt><dd>{{ vehicle.seating_capacity }} seats</dd></div>{% endif %}
+          {% if vehicle.gross_weight_kg %}<div><dt>Gross weight</dt><dd class="num r">{{ vehicle.gross_weight_kg|intcomma }} kg</dd></div>{% endif %}
+          {% if vehicle.permit_no %}<div><dt>Permit No.</dt><dd>{{ vehicle.permit_no }}</dd></div>{% endif %}
+          <div><dt>Department</dt><dd>{{ vehicle.department|default:'<span class="not-recorded">Not set</span>' }}</dd></div>
+          <div><dt>Location</dt><dd>{{ vehicle.location|default:'<span class="not-recorded">Not set</span>' }}</dd></div>
+        </dl>
+        {% if vehicle.notes %}<p class="muted" style="margin-top:16px;white-space:pre-line">{{ vehicle.notes }}</p>{% endif %}
+      </div>
+      <div class="card">
+        <div class="card-head"><div><h2>Recent activity</h2></div><a class="link-btn" href="?tab=history" data-goto-tab="history">History</a></div>
+        {% include 'fleet/_activity.html' with items=activities|slice:':6' %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Ownership -->
+  <div class="tab-panel" role="tabpanel" id="panel-ownership" aria-labelledby="tab-ownership" tabindex="0"{% if tab != 'ownership' %} hidden{% endif %}>
+    <div class="card">
+      <div class="card-head"><div><h2>Ownership</h2><p>{{ vehicle.get_ownership_type_display }}</p></div>{% if perms.fleet.change_vehicle %}<a class="btn btn-secondary btn-sm" href="{% url 'fleet:vehicle_edit' vehicle.pk %}">{% icon 'edit' 15 %} Edit</a>{% endif %}</div>
+      <dl class="dl">
+        <div><dt>Ownership type</dt><dd>{{ vehicle.get_ownership_type_display }}</dd></div>
+        <div><dt>Registered owner</dt><dd>{{ vehicle.registered_owner|default:'<span class="not-recorded">Not recorded</span>' }}</dd></div>
+        {% if vehicle.ownership_type == 'owned' or vehicle.ownership_type == 'financed' %}
+        <div><dt>Purchase date</dt><dd>{{ vehicle.purchase_date|date:'d M Y'|default:'<span class="not-recorded">Not recorded</span>' }}</dd></div>
+        <div><dt>Purchase price</dt><dd class="num r">{{ vehicle.purchase_price|rm:'<span class="not-recorded">Not recorded</span>' }}</dd></div>
+        {% endif %}
+        {% if vehicle.ownership_type != 'owned' %}
+        <div><dt>Financier / lessor</dt><dd>{{ vehicle.financier|default:'<span class="not-recorded">Not recorded</span>' }}</dd></div>
+        <div><dt>Contract end</dt><dd>{% if vehicle.contract_end %}{{ vehicle.contract_end|date:'d M Y' }} {% expiry_badge vehicle.contract_end %}{% else %}<span class="not-recorded">Not recorded</span>{% endif %}</dd></div>
+        <div><dt>Monthly instalment</dt><dd class="num r">{{ vehicle.monthly_instalment|rm:'<span class="not-recorded">Not recorded</span>' }}</dd></div>
+        {% endif %}
+      </dl>
+    </div>
+  </div>
+
+  <!-- Insurance / Road tax -->
+  {% include 'fleet/vehicles/_compliance_tab.html' with kind='insurance' kind_label='Insurance' current=insurance records=insurance_records ico='shield' required=vehicle.requires_insurance %}
+  {% include 'fleet/vehicles/_compliance_tab.html' with kind='road_tax' kind_label='Road Tax' current=road_tax records=road_tax_records ico='receipt' required=vehicle.requires_road_tax %}
+
+  <!-- Drivers -->
+  <div class="tab-panel" role="tabpanel" id="panel-drivers" aria-labelledby="tab-drivers" tabindex="0"{% if tab != 'drivers' %} hidden{% endif %}>
+    <div class="grid g-side">
+      <div class="card flush table-card">
+        <div class="card-head"><div><h2>Driver assignments</h2><p>Current and past drivers of this vehicle.</p></div></div>
+        {% if assignments %}
+        <div class="table-wrap" style="margin-top:14px"><table class="table stack">
+          <thead><tr><th>Driver</th><th>Role</th><th>From</th><th>Until</th><th class="r"><span class="sr-only">Actions</span></th></tr></thead>
+          <tbody>{% for a in assignments %}
+            <tr>
+              <td class="cell-main" data-label="Driver"><a class="vehicle-cell" href="{{ a.driver.get_absolute_url }}" style="color:var(--text)"><span class="avatar sm">{{ a.driver.initials }}</span><span><strong>{{ a.driver.name }}</strong><span class="sub" style="display:block">{{ a.driver.phone|default:a.driver.staff_no }}</span></span></a></td>
+              <td data-label="Role">{% if a.is_primary %}{% badge 'active' 'Primary' %}{% else %}{% badge 'neutral' 'Relief' 'neutral' %}{% endif %}</td>
+              <td data-label="From" class="num nowrap">{{ a.start_date|date:'d M Y' }}</td>
+              <td data-label="Until" class="num nowrap">{% if a.end_date %}{{ a.end_date|date:'d M Y' }}{% else %}{% badge 'info' 'Current' 'info' %}{% endif %}</td>
+              <td class="r">{% if not a.end_date and perms.fleet.change_assignment %}
+                <form method="post" action="{% url 'fleet:assignment_end' a.pk %}" data-confirm="End {{ a.driver }}'s assignment to {{ vehicle }} today?" data-confirm-label="End assignment">{% csrf_token %}<button class="btn btn-ghost btn-xs" type="submit">End</button></form>{% endif %}</td>
+            </tr>{% endfor %}</tbody></table></div>
+        {% elif vehicle.takes_driver %}
+        {% include 'ui/empty.html' with ico='users' title='No drivers assigned' text='Assign a primary driver so responsibilities and incidents are traceable.' small=True %}
+        {% else %}
+        {% include 'ui/empty.html' with ico='trailer' title='Trailers are not assigned drivers' text='Assign drivers to the prime mover that tows this trailer.' small=True %}
+        {% endif %}
+      </div>
+      {% if vehicle.takes_driver and perms.fleet.add_assignment %}
+      <form class="form-card" method="post" action="{% url 'fleet:assignment_create' vehicle.pk %}">
+        {% csrf_token %}
+        <div class="form-section"><div class="form-section-head"><h3>Assign driver</h3><p>Assigning a new primary driver ends the current primary assignment.</p></div>
+          <div class="fields one">{% field assignment_form.driver %}{% field assignment_form.start_date %}{% field assignment_form.is_primary %}</div></div>
+        <div class="form-actions"><button class="btn btn-primary btn-sm" type="submit">{% icon 'plus' 15 %} Assign</button></div>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Maintenance -->
+  <div class="tab-panel" role="tabpanel" id="panel-maintenance" aria-labelledby="tab-maintenance" tabindex="0"{% if tab != 'maintenance' %} hidden{% endif %}>
+    <div class="card flush table-card">
+      <div class="card-head"><div><h2>Breakdowns &amp; repairs</h2></div>{% if perms.fleet.add_breakdown %}<a class="btn btn-primary btn-sm" href="{% url 'fleet:breakdown_create' %}?vehicle={{ vehicle.pk }}">{% icon 'plus' 15 %} Record breakdown</a>{% endif %}</div>
+      {% if breakdowns %}
+      <div class="table-wrap" style="margin-top:14px"><table class="table stack">
+        <thead><tr><th>ID</th><th>Reported</th><th>Problem</th><th>Severity</th><th>Workshop</th><th class="r">Cost</th><th>Status</th></tr></thead>
+        <tbody>{% for b in breakdowns %}
+          <tr data-href="{{ b.get_absolute_url }}" style="cursor:pointer">
+            <td class="cell-main" data-label="ID"><a class="reg" href="{{ b.get_absolute_url }}">{{ b.code }}</a></td>
+            <td data-label="Reported" class="num nowrap">{{ b.reported_on|date:'d M Y' }}</td>
+            <td data-label="Problem">{{ b.problem }}</td>
+            <td data-label="Severity">{% badge b.severity b.get_severity_display %}</td>
+            <td data-label="Workshop">{{ b.workshop|default:'—' }}</td>
+            <td data-label="Cost" class="num r">{% if b.actual_cost is not None %}{{ b.actual_cost|rm }}{% elif b.estimated_cost is not None %}<span class="muted">est. {{ b.estimated_cost|rm }}</span>{% else %}<span class="subtle">Not quoted</span>{% endif %}</td>
+            <td data-label="Status">{% badge b.status b.get_status_display %}</td>
+          </tr>{% endfor %}</tbody></table></div>
+      {% else %}
+      {% include 'ui/empty.html' with ico='wrench' title='No breakdowns recorded' text='Breakdowns, diagnosis and repair progress for this vehicle will appear here.' small=True %}
+      {% endif %}
+    </div>
+    <div class="card flush table-card" style="margin-top:var(--gap)">
+      <div class="card-head"><div><h2>Scheduled maintenance</h2></div>{% if perms.fleet.add_servicetask %}<button class="btn btn-secondary btn-sm" type="button" data-open="task-dialog">{% icon 'calendar' 15 %} Schedule</button>{% endif %}</div>
+      {% if service_tasks %}
+      <div class="table-wrap" style="margin-top:14px"><table class="table stack compact">
+        <thead><tr><th>Task</th><th>Due</th><th>Status</th><th class="r"><span class="sr-only">Actions</span></th></tr></thead>
+        <tbody>{% for t in service_tasks %}
+          <tr class="{% if t.is_overdue %}is-expired{% endif %}">
+            <td class="cell-main" data-label="Task"><strong>{{ t.title }}</strong>{% if t.workshop %}<span class="sub" style="display:block">{{ t.workshop }}</span>{% endif %}</td>
+            <td data-label="Due" class="num nowrap">{{ t.due_date|date:'d M Y' }}{% if t.due_odometer_km %} · {{ t.due_odometer_km|intcomma }} km{% endif %}</td>
+            <td data-label="Status">{% if t.completed_on %}{% badge 'completed' 'Done' %} <span class="small muted">{{ t.completed_on|date:'d M Y' }}</span>{% elif t.is_overdue %}{% badge 'expired' 'Overdue' %}{% else %}{% badge 'pending' 'Scheduled' %}{% endif %}</td>
+            <td class="r">{% if not t.completed_on and perms.fleet.change_servicetask %}<form method="post" action="{% url 'fleet:task_complete' t.pk %}">{% csrf_token %}<input type="hidden" name="next" value="{{ vehicle.get_absolute_url }}?tab=maintenance"><button class="btn btn-soft btn-xs" type="submit">{% icon 'check' 14 %} Mark done</button></form>{% endif %}</td>
+          </tr>{% endfor %}</tbody></table></div>
+      {% else %}
+      {% include 'ui/empty.html' with ico='calendar' title='Nothing scheduled' text='Plan servicing, PUSPAKOM inspections and tyre changes so overdue work is flagged automatically.' small=True %}
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Expenses -->
+  <div class="tab-panel" role="tabpanel" id="panel-expenses" aria-labelledby="tab-expenses" tabindex="0"{% if tab != 'expenses' %} hidden{% endif %}>
+    <div class="card flush table-card">
+      <div class="card-head"><div><h2>Expenses</h2><p>{% if has_expenses %}Lifetime actual spend {{ lifetime_spend|rm }}{% if expense_count > 50 %} · showing latest 50{% endif %}{% endif %}</p></div>
+        <div class="actions">{% if has_expenses %}<a class="btn btn-ghost btn-sm" href="{% url 'fleet:expense_list' %}?vehicle={{ vehicle.pk }}&period=custom&start=2000-01-01&end={{ today|date:'Y-m-d' }}">Open in Expenses</a>{% endif %}
+        {% if perms.fleet.add_expense %}<a class="btn btn-primary btn-sm" href="{% url 'fleet:expense_create' %}?vehicle={{ vehicle.pk }}&next={{ vehicle.get_absolute_url|urlencode }}%3Ftab%3Dexpenses">{% icon 'plus' 15 %} Add expense</a>{% endif %}</div></div>
+      {% if expenses %}
+      <div class="table-wrap" style="margin-top:14px"><table class="table stack">
+        <thead><tr><th>Date</th><th>Category</th><th>Description</th><th>Supplier</th><th class="r">Amount</th><th>Payment</th></tr></thead>
+        <tbody>{% for e in expenses %}
+          <tr>
+            <td class="cell-main num nowrap" data-label="Date">{{ e.date|date:'d M Y' }}</td>
+            <td data-label="Category">{{ e.get_category_display }}</td>
+            <td data-label="Description">{{ e.description }}</td>
+            <td data-label="Supplier">{{ e.supplier|default:'—' }}</td>
+            <td data-label="Amount" class="num r">{{ e.amount|rm }}</td>
+            <td data-label="Payment">{% badge e.payment_status e.get_payment_status_display %}</td>
+          </tr>{% endfor %}</tbody></table></div>
+      {% else %}
+      {% include 'ui/empty.html' with ico='wallet' title='No expenses for this vehicle' text='Fuel, servicing, repairs, insurance and road tax costs will be listed here.' small=True %}
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Documents -->
+  <div class="tab-panel" role="tabpanel" id="panel-documents" aria-labelledby="tab-documents" tabindex="0"{% if tab != 'documents' %} hidden{% endif %}>
+    <div class="card flush table-card">
+      <div class="card-head"><div><h2>Documents</h2><p>Registration card, cover notes, permits and inspection reports.</p></div>{% if perms.fleet.add_document %}<button class="btn btn-primary btn-sm" type="button" data-open="upload-dialog">{% icon 'upload' 15 %} Upload</button>{% endif %}</div>
+      {% if perms.fleet.view_document %}
+        {% if documents %}
+        <div class="table-wrap" style="margin-top:14px"><table class="table stack">
+          <thead><tr><th>Document</th><th>Category</th><th>Issued</th><th>Expiry</th><th>Uploaded by</th><th>Updated</th><th class="r"><span class="sr-only">Actions</span></th></tr></thead>
+          <tbody>{% for d in documents %}{% include 'ui/doc_row.html' with d=d hide_vehicle=True %}{% endfor %}</tbody></table></div>
+        {% else %}
+        {% include 'ui/empty.html' with ico='file' title='No documents uploaded' text='Upload the registration card (geran) first — it is flagged as missing until it is on file.' small=True %}
+        {% endif %}
+      {% else %}
+      {% include 'ui/empty.html' with ico='shield' title='Restricted' text='Your role does not include access to stored documents.' small=True %}
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- History -->
+  <div class="tab-panel" role="tabpanel" id="panel-history" aria-labelledby="tab-history" tabindex="0"{% if tab != 'history' %} hidden{% endif %}>
+    <div class="grid g-2">
+      <div class="card">
+        <div class="card-head"><div><h2>Activity</h2><p>Renewals, assignments, breakdowns and uploads.</p></div></div>
+        {% include 'fleet/_activity.html' with items=activities %}
+      </div>
+      <div class="card">
+        <div class="card-head"><div><h2>Change log</h2><p>Field-level audit trail of this vehicle's record.</p></div></div>
+        {% if history %}
+        <ol class="timeline">
+          {% for h in history %}
+          <li>
+            <span class="tl-dot {% if h.kind == 'Created' %}success{% else %}neutral{% endif %}" aria-hidden="true">{% if h.kind == 'Created' %}{% icon 'plus' 12 %}{% else %}{% icon 'edit' 12 %}{% endif %}</span>
+            <div class="tl-title">{{ h.kind }} by {{ h.user|display_name }}</div>
+            <div class="tl-meta">{{ h.when|date:'d M Y, H:i' }}</div>
+            {% if h.changes %}<div class="diff">{% for c in h.changes|slice:':8' %}<div><span class="muted">{{ c.field }}:</span> <del>{{ c.old|default:'—' }}</del> → <ins>{{ c.new|default:'—' }}</ins></div>{% endfor %}</div>{% endif %}
+          </li>
+          {% endfor %}
+        </ol>
+        {% else %}<p class="muted">No changes recorded.</p>{% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block modals %}
+{% if perms.fleet.add_document %}
+{% include 'ui/upload_modal.html' with form=upload_form next_url=vehicle.get_absolute_url|add:'?tab=documents' %}
+{% endif %}
+{% if perms.fleet.add_servicetask %}
+<dialog class="modal" id="task-dialog" aria-labelledby="task-title">
+  <form method="post" action="{% url 'fleet:task_create' %}">{% csrf_token %}
+    <input type="hidden" name="vehicle" value="{{ vehicle.pk }}">
+    <input type="hidden" name="next" value="{{ vehicle.get_absolute_url }}?tab=maintenance">
+    <div class="modal-head"><div><h2 id="task-title">Schedule maintenance</h2><p>{{ vehicle.registration_no }}</p></div><button class="icon-btn" type="button" data-close aria-label="Close">{% icon 'x' 18 %}</button></div>
+    <div class="modal-body"><div class="fields">
+      {% field task_form.title True %}{% field task_form.due_date %}{% field task_form.due_odometer_km %}{% field task_form.workshop True %}{% field task_form.notes %}
+    </div></div>
+    <div class="modal-foot"><button class="btn btn-secondary" type="button" data-close>Cancel</button><button class="btn btn-primary" type="submit">Schedule</button></div>
+  </form>
+</dialog>
+{% endif %}
+{% endblock %}

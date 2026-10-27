@@ -1,0 +1,11 @@
+<div class="empty{% if small %} sm{% endif %}">
+  <span class="e-ico">{% icon ico|default:'list' 24 %}</span>
+  <h3>{{ title }}</h3>
+  {% if text %}<p>{{ text }}</p>{% endif %}
+  {% if action_url or action2_url %}
+  <div class="actions">
+    {% if action_url %}<a class="btn btn-primary btn-sm" href="{{ action_url }}">{% icon action_icon|default:'plus' 15 %} {{ action_label }}</a>{% endif %}
+    {% if action2_url %}<a class="btn btn-secondary btn-sm" href="{{ action2_url }}">{{ action2_label }}</a>{% endif %}
+  </div>
+  {% endif %}
+</div>

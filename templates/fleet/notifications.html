@@ -1,0 +1,52 @@
+{% extends 'fleet/layout.html' %}
+{% block title %}Notifications{% endblock %}
+{% block page_title %}Notifications{% endblock %}
+{% block crumbs %}<li aria-current="page">Notifications</li>{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Notifications</h1><p class="lede">Everything that needs action, generated live from expiry dates, breakdowns, service schedules and documents.</p></div>
+  <div class="actions">
+    {% if unread_count %}
+    <form method="post" action="{% url 'fleet:notifications_read' %}">{% csrf_token %}<input type="hidden" name="all" value="1"><input type="hidden" name="next" value="{{ request.get_full_path }}">
+      <button class="btn btn-secondary" type="submit">{% icon 'check' 16 %} Mark all as read</button></form>
+    {% endif %}
+  </div>
+</div>
+
+<section class="card flush table-card">
+  <div class="toolbar">
+    <div class="segmented" role="group" aria-label="Priority">
+      {% for k, l in priority_filters %}<a href="{% qs priority=k %}" aria-current="{% if priority == k %}true{% else %}false{% endif %}">{{ l }}{% if k %}<span class="n">{{ counts|get_item:k }}</span>{% endif %}</a>{% endfor %}
+    </div>
+    <span class="grow"></span>
+    <a class="btn btn-ghost btn-sm" href="{% if request.GET.unread %}{% qs unread=None %}{% else %}{% qs unread='1' %}{% endif %}">{% if request.GET.unread %}Show all{% else %}Unread only{% endif %}</a>
+  </div>
+  {% if alerts %}
+  <div class="table-wrap">
+    <table class="table stack">
+      <thead><tr><th>Vehicle</th><th>Issue</th><th>Due Date</th><th>Priority</th><th>Status</th><th class="r"><span class="sr-only">Actions</span></th></tr></thead>
+      <tbody>{% for a in alerts %}
+        <tr class="{% if a.priority == 'critical' %}is-expired{% elif a.priority == 'high' %}is-warning{% endif %}"{% if not a.read %} style="background:rgba(239,246,255,.45)"{% endif %}>
+          <td class="cell-main" data-label="Vehicle">{% include 'ui/vehicle_cell.html' with v=a.vehicle %}</td>
+          <td class="issue" data-label="Issue">{% if not a.read %}<strong>{{ a.issue }}</strong> <span class="sr-only">(unread)</span>{% else %}{{ a.issue }}{% endif %}</td>
+          <td data-label="Due" class="num nowrap">{{ a.due_date|date:'d M Y'|default:'—' }}</td>
+          <td data-label="Priority"><span class="priority {{ a.priority }}"><span class="bars" aria-hidden="true"><i></i><i></i><i></i></span>{{ a.priority|title }}</span></td>
+          <td data-label="Status">{% badge a.status a.status a.tone %}</td>
+          <td><div class="row-actions">
+            <a class="btn btn-soft btn-xs" href="{{ a.action_url }}">{{ a.action_label }}</a>
+            {% if not a.read %}<form method="post" action="{% url 'fleet:notifications_read' %}">{% csrf_token %}<input type="hidden" name="key" value="{{ a.key }}"><input type="hidden" name="next" value="{{ request.get_full_path }}"><button class="btn btn-ghost btn-xs" type="submit">Mark read</button></form>{% endif %}
+          </div></td>
+        </tr>{% endfor %}</tbody>
+    </table>
+  </div>
+  {% else %}
+  {% include 'ui/empty.html' with ico='check-circle' title="You're all caught up" text='No notifications match this filter. New items appear automatically when renewals approach or issues are reported.' %}
+  {% endif %}
+</section>
+
+<section class="card section" id="activity">
+  <div class="card-head"><div><h2>Activity log</h2><p>Who did what, most recent first.</p></div></div>
+  {% include 'fleet/_activity.html' with items=activities %}
+  {% with page=activities %}{% include 'ui/pagination.html' %}{% endwith %}
+</section>
+{% endblock %}

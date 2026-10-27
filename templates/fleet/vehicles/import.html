@@ -1,0 +1,49 @@
+{% extends 'fleet/layout.html' %}
+{% block title %}Import Vehicles{% endblock %}
+{% block page_title %}Import Vehicles{% endblock %}
+{% block crumbs %}<li><a href="{% url 'fleet:vehicle_list' %}">Vehicles</a></li><li aria-current="page">Import</li>{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Import vehicles</h1><p class="lede">Bring in your existing vehicle register from Excel or CSV.</p></div>
+  <div class="actions"><a class="btn btn-secondary" href="?template=1">{% icon 'download' 16 %} Download template</a></div>
+</div>
+<div class="grid g-side">
+  <form method="post" enctype="multipart/form-data" class="form-card">
+    {% csrf_token %}
+    <div class="form-section">
+      <div class="form-section-head"><h2>Upload file</h2><p>Each row becomes a vehicle. Rows with problems are skipped and listed below; nothing else is affected.</p></div>
+      <div class="dropzone" data-max-mb="10">
+        <span class="dz-ico">{% icon 'import' 22 %}</span>
+        <p><strong>Click to choose</strong> or drag an .xlsx / .csv file here</p>
+        <input type="file" name="file" accept=".xlsx,.csv" required aria-label="Choose spreadsheet">
+      </div>
+      <div class="dz-list"></div>
+      {% if form.file.errors %}<p class="error-text" style="margin-top:10px">{% icon 'alert-circle' 14 %}{{ form.file.errors|join:' ' }}</p>{% endif %}
+    </div>
+    <div class="form-actions"><a class="btn btn-secondary" href="{% url 'fleet:vehicle_list' %}">Cancel</a><button class="btn btn-primary" type="submit">{% icon 'upload' 16 %} Import</button></div>
+  </form>
+  <div class="card">
+    <h3>Columns</h3>
+    <p class="small muted" style="margin:4px 0 12px">Only <strong>registration_no, vehicle_type, make, model</strong> are required. Types and statuses accept either the code or the label (e.g. “Prime Mover”). Dates as YYYY-MM-DD or DD/MM/YYYY.</p>
+    <div style="display:flex;flex-wrap:wrap;gap:6px">{% for c in columns %}<span class="pill">{{ c }}</span>{% endfor %}</div>
+  </div>
+</div>
+
+{% if results %}
+<section class="section grid g-2">
+  <div class="card">
+    <div class="card-head"><div><h2>{% icon 'check-circle' 18 %} {{ results.created|length }} imported</h2></div></div>
+    {% if results.created %}<ul class="activity">{% for v in results.created %}<li>{% include 'ui/vehicle_cell.html' with v=v sub=v.make_model %}</li>{% endfor %}</ul>
+    {% else %}<p class="muted">No rows were imported.</p>{% endif %}
+  </div>
+  <div class="card">
+    <div class="card-head"><div><h2>{% icon 'alert' 18 %} {{ results.errors|length }} skipped</h2><p>Fix these rows in your file and import again.</p></div></div>
+    {% if results.errors %}
+    <div class="table-wrap"><table class="table compact"><thead><tr><th>Row</th><th>Registration</th><th>Problem</th></tr></thead><tbody>
+      {% for e in results.errors %}<tr><td class="num r">{{ e.row }}</td><td>{{ e.reg }}</td><td class="small">{{ e.messages|join:'; ' }}</td></tr>{% endfor %}
+    </tbody></table></div>
+    {% else %}<p class="muted">Every row was valid.</p>{% endif %}
+  </div>
+</section>
+{% endif %}
+{% endblock %}

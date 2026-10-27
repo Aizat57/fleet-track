@@ -1,0 +1,72 @@
+{% extends 'fleet/layout.html' %}
+{% block title %}{{ d }}{% endblock %}
+{% block page_title %}{{ d }}{% endblock %}
+{% block crumbs %}<li><a href="{% url 'fleet:driver_list' %}">Drivers</a></li><li aria-current="page">{{ d }}</li>{% endblock %}
+{% block content %}
+<section class="card" style="display:flex;gap:20px;align-items:center;flex-wrap:wrap">
+  <span class="avatar" style="width:72px;height:72px;font-size:24px">{{ d.initials }}</span>
+  <div style="flex:1;min-width:220px">
+    <div class="actions" style="gap:8px;margin-bottom:6px">{% badge d.status d.get_status_display %}{% if d.department %}<span class="pill">{{ d.department }}</span>{% endif %}</div>
+    <h1>{{ d.name }}</h1>
+    <p class="muted" style="margin-top:4px">{% if d.staff_no %}Staff no. {{ d.staff_no }} · {% endif %}{{ d.phone|default:'No phone recorded' }}{% if d.email %} · {{ d.email }}{% endif %}</p>
+  </div>
+  <div class="actions">
+    {% if perms.fleet.add_document %}<a class="btn btn-secondary" href="{% url 'fleet:document_upload' %}?driver={{ d.pk }}&category=licence&next={{ d.get_absolute_url|urlencode }}">{% icon 'upload' 16 %} Upload licence</a>{% endif %}
+    {% if perms.fleet.change_driver %}<a class="btn btn-primary" href="{% url 'fleet:driver_edit' d.pk %}">{% icon 'edit' 16 %} Edit</a>{% endif %}
+  </div>
+</section>
+
+<div class="grid g-main section">
+  <div style="display:grid;gap:var(--gap);align-content:start">
+    <div class="card flush table-card">
+      <div class="card-head"><div><h2>Assigned vehicles</h2></div></div>
+      {% if current %}
+      <div class="table-wrap" style="margin-top:14px"><table class="table stack">
+        <thead><tr><th>Vehicle</th><th>Role</th><th>Since</th><th class="r"><span class="sr-only">Actions</span></th></tr></thead>
+        <tbody>{% for a in current %}<tr>
+          <td class="cell-main" data-label="Vehicle">{% include 'ui/vehicle_cell.html' with v=a.vehicle sub=a.vehicle.make_model %}</td>
+          <td data-label="Role">{% if a.is_primary %}{% badge 'active' 'Primary' %}{% else %}{% badge 'neutral' 'Relief' 'neutral' %}{% endif %}</td>
+          <td data-label="Since" class="num">{{ a.start_date|date:'d M Y' }}</td>
+          <td class="r">{% if perms.fleet.change_assignment %}<form method="post" action="{% url 'fleet:assignment_end' a.pk %}" data-confirm="End {{ d }}'s assignment to {{ a.vehicle }} today?" data-confirm-label="End assignment">{% csrf_token %}<input type="hidden" name="next" value="{{ d.get_absolute_url }}"><button class="btn btn-ghost btn-xs" type="submit">End</button></form>{% endif %}</td>
+        </tr>{% endfor %}</tbody></table></div>
+      {% else %}
+      {% include 'ui/empty.html' with ico='car' title='No vehicle assigned' small=True %}
+      {% endif %}
+      {% if perms.fleet.add_assignment and d.status != 'inactive' %}
+      <form method="post" action="{% url 'fleet:driver_assign' d.pk %}" class="inline-form" style="padding:14px var(--pad);border-top:1px solid var(--line)">{% csrf_token %}
+        {% field assign_form.vehicle %}{% field assign_form.start_date %}
+        <div class="field" style="flex:0;min-width:auto">{% field assign_form.is_primary %}</div>
+        <button class="btn btn-secondary" type="submit">{% icon 'plus' 16 %} Assign</button>
+      </form>
+      {% endif %}
+    </div>
+    {% if past %}
+    <div class="card">
+      <div class="card-head"><h2>Previous assignments</h2></div>
+      <ul class="activity">{% for a in past %}<li><span class="a-ico">{% type_icon a.vehicle.vehicle_type 15 %}</span><div><a class="a-msg" href="{{ a.vehicle.get_absolute_url }}">{{ a.vehicle.registration_no }}</a><div class="a-meta">{{ a.start_date|date:'d M Y' }} – {{ a.end_date|date:'d M Y' }}</div></div></li>{% endfor %}</ul>
+    </div>
+    {% endif %}
+    {% if perms.fleet.view_document %}
+    <div class="card flush table-card">
+      <div class="card-head"><h2>Documents</h2></div>
+      {% if documents %}
+      <div class="table-wrap" style="margin-top:14px"><table class="table stack compact">
+        <thead><tr><th>Document</th><th>Category</th><th>Issued</th><th>Expiry</th><th>Uploaded by</th><th>Updated</th><th class="r"><span class="sr-only">Actions</span></th></tr></thead>
+        <tbody>{% for doc in documents %}{% include 'ui/doc_row.html' with d=doc hide_vehicle=True %}{% endfor %}</tbody></table></div>
+      {% else %}<p class="muted small" style="padding:0 var(--pad) var(--pad)">No documents. Upload a copy of the driving licence and GDL/PSV.</p>{% endif %}
+    </div>
+    {% endif %}
+  </div>
+  <div class="card">
+    <div class="card-head"><h2>Licence</h2></div>
+    <dl class="dl one">
+      <div><dt>Licence no.</dt><dd>{{ d.licence_no|default:'<span class="not-recorded">Not recorded</span>' }}</dd></div>
+      <div><dt>Classes</dt><dd>{{ d.licence_classes|default:'<span class="not-recorded">Not recorded</span>' }}</dd></div>
+      <div><dt>Licence expiry</dt><dd>{% if d.licence_expiry %}{{ d.licence_expiry|date:'d M Y' }} {% expiry_badge d.licence_expiry %}{% else %}<span class="not-recorded">Not recorded</span>{% endif %}</dd></div>
+      <div><dt>GDL / PSV expiry</dt><dd>{% if d.gdl_expiry %}{{ d.gdl_expiry|date:'d M Y' }} {% expiry_badge d.gdl_expiry %}{% else %}<span class="not-recorded">Not recorded</span>{% endif %}</dd></div>
+      <div><dt>IC no.</dt><dd>{{ d.ic_no|default:'—' }}</dd></div>
+    </dl>
+    {% if d.notes %}<p class="muted" style="margin-top:14px;white-space:pre-line">{{ d.notes }}</p>{% endif %}
+  </div>
+</div>
+{% endblock %}

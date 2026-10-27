@@ -1,0 +1,11 @@
+<a class="card metric tone-{{ tone|default:'blue' }}" href="{{ url }}">
+  <div class="metric-top">
+    <span class="metric-icon">{% icon ico 20 %}</span>
+    <span class="go" aria-hidden="true">{% icon 'chevron-right' 18 %}</span>
+  </div>
+  <div>
+    <div class="metric-value{% if md %} md{% endif %}">{{ value }}</div>
+    <div class="metric-label">{{ label }}</div>
+    {% if sub %}<div class="metric-sub">{{ sub }}</div>{% endif %}
+  </div>
+</a>

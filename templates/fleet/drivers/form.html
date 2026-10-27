@@ -1,0 +1,19 @@
+{% extends 'fleet/layout.html' %}
+{% block title %}{% if driver %}Edit {{ driver }}{% else %}Add Driver{% endif %}{% endblock %}
+{% block page_title %}{% if driver %}Edit {{ driver }}{% else %}Add Driver{% endif %}{% endblock %}
+{% block crumbs %}<li><a href="{% url 'fleet:driver_list' %}">Drivers</a></li><li aria-current="page">{% if driver %}{{ driver }}{% else %}New{% endif %}</li>{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>{% if driver %}Edit driver{% else %}Add a driver{% endif %}</h1></div></div>
+<form method="post" class="form-card" style="max-width:960px" novalidate>
+  {% csrf_token %}
+  <section class="form-section">
+    <div class="form-section-head"><h2>Personal &amp; contact</h2></div>
+    <div class="fields">{% field form.name True %}{% field form.staff_no %}{% field form.ic_no %}{% field form.phone %}{% field form.email %}{% field form.department %}{% field form.status %}</div>
+  </section>
+  <section class="form-section">
+    <div class="form-section-head"><h2>Licence</h2><p>Expiry dates are used to flag drivers whose licence or GDL/PSV is about to lapse.</p></div>
+    <div class="fields">{% field form.licence_no %}{% field form.licence_classes %}{% field form.licence_expiry %}{% field form.gdl_expiry %}{% field form.notes %}</div>
+  </section>
+  <div class="form-actions"><a class="btn btn-secondary" href="{% if driver %}{{ driver.get_absolute_url }}{% else %}{% url 'fleet:driver_list' %}{% endif %}">Cancel</a><button class="btn btn-primary" type="submit">{% icon 'check' 16 %} Save</button></div>
+</form>
+{% endblock %}

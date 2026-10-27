@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block title %}Access restricted{% endblock %}
+{% block body %}
+<div style="min-height:100vh;display:grid;place-items:center;padding:24px">
+  <div class="card solid" style="max-width:460px;width:100%">
+    <div class="empty">
+      <span class="e-ico">{% icon 'shield' 24 %}</span>
+      <h3>You don't have access to this</h3>
+      <p>Your role doesn't include permission for this page or action. Ask a FleetTrack administrator if you need it.</p>
+      <div class="actions"><a class="btn btn-primary btn-sm" href="/">Back to dashboard</a></div>
+    </div>
+  </div>
+</div>
+{% endblock %}
